@@ -1,5 +1,7 @@
 package main // unit: Sounds
 
+import "math"
+
 type TDrumData struct {
 	Len  int16
 	Data [255]uint16
@@ -13,12 +15,8 @@ var (
 	SoundDurationMultiplier byte
 	SoundDurationCounter    byte
 	SoundBuffer             string
-	SoundNewVector          *uintptr
-	SoundOldVector          *uintptr
 	SoundBufferPos          int16
 	SoundIsPlaying          bool
-	SoundTimeCheckCounter   int16
-	UseSystemTimeForElapsed bool
 	TimerTicks              uint16
 	SoundTimeCheckHsec      int16
 	SoundDrumTable          [10]TDrumData
@@ -52,16 +50,15 @@ func SoundClearQueue() {
 
 func SoundInitFreqTable() {
 	var (
-		octave, note                    int16
-		freqC1, noteStep, noteBase, ln2 float64
+		octave, note               int16
+		freqC1, noteStep, noteBase float64
 	)
 	freqC1 = 32.0
-	ln2 = Ln(2.0)
-	noteStep = Exp(ln2 / 12.0)
+	noteStep = math.Exp(math.Ln2 / 12.0)
 	for octave = 1; octave <= 15; octave++ {
-		noteBase = Exp(float64(octave)*ln2) * freqC1
+		noteBase = math.Exp(float64(octave)*math.Ln2) * freqC1
 		for note = 0; note <= 11; note++ {
-			SoundFreqTable[octave*16+note-1] = uint16(Trunc(noteBase))
+			SoundFreqTable[octave*16+note-1] = uint16(math.Floor(noteBase))
 			noteBase = noteBase * noteStep
 		}
 	}
@@ -110,34 +107,13 @@ func SoundPlayDrum(drum *TDrumData) {
 	NoSound()
 }
 
-func SoundCheckTimeIntr() {
-	var hour, minute, sec, hSec uint16
-	GetTime(&hour, &minute, &sec, &hSec)
-	if SoundTimeCheckHsec != 0 && int16(hSec) != SoundTimeCheckHsec {
-		SoundTimeCheckCounter = 0
-		UseSystemTimeForElapsed = true
-	}
-	SoundTimeCheckHsec = int16(hSec)
-}
-
 func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bool) {
 	var (
-		hour, minute, sec, hSec uint16
-		hSecsDiff               uint16
-		hSecsTotal              int16
+		hSecsDiff  uint16
+		hSecsTotal int16
 	)
-	if SoundTimeCheckCounter > 0 && SoundTimeCheckCounter%2 == 1 {
-		SoundTimeCheckCounter--
-		SoundCheckTimeIntr()
-	}
-	if UseSystemTimeForElapsed {
-		GetTime(&hour, &minute, &sec, &hSec)
-		hSecsTotal = int16(sec*100 + hSec)
-		hSecsDiff = uint16(hSecsTotal-*counter+6000) % 6000
-	} else {
-		hSecsTotal = int16(TimerTicks * 6)
-		hSecsDiff = uint16(hSecsTotal - *counter)
-	}
+	hSecsTotal = int16(TimerTicks * 6)
+	hSecsDiff = uint16(hSecsTotal - *counter)
 	if hSecsDiff >= uint16(duration) {
 		SoundHasTimeElapsed = true
 		*counter = hSecsTotal
@@ -149,9 +125,6 @@ func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bo
 
 func SoundTimerHandler() {
 	TimerTicks++
-	if SoundTimeCheckCounter > 0 && SoundTimeCheckCounter%2 == 0 {
-		SoundTimeCheckCounter--
-	}
 	if !SoundEnabled {
 		SoundIsPlaying = false
 		NoSound()
@@ -166,13 +139,13 @@ func SoundTimerHandler() {
 				if SoundBuffer[SoundBufferPos-1] == '\x00' {
 					NoSound()
 				} else if SoundBuffer[SoundBufferPos-1] < '\xf0' {
-					Sound(SoundFreqTable[Ord(SoundBuffer[SoundBufferPos-1])-1])
+					Sound(SoundFreqTable[SoundBuffer[SoundBufferPos-1]-1])
 				} else {
-					SoundPlayDrum(&SoundDrumTable[Ord(SoundBuffer[SoundBufferPos-1])-240])
+					SoundPlayDrum(&SoundDrumTable[SoundBuffer[SoundBufferPos-1]-240])
 				}
 
 				SoundBufferPos++
-				SoundDurationCounter = SoundDurationMultiplier * Ord(SoundBuffer[SoundBufferPos-1])
+				SoundDurationCounter = SoundDurationMultiplier * SoundBuffer[SoundBufferPos-1]
 				SoundBufferPos++
 			}
 		}
@@ -181,7 +154,7 @@ func SoundTimerHandler() {
 }
 
 func SoundUninstall() {
-	SetIntVec(0x1C, SoundOldVector)
+	// stub SetIntVec(0x1C, SoundOldVector)
 }
 
 func SoundParse(input string) (SoundParse string) {
@@ -271,8 +244,8 @@ func SoundParse(input string) (SoundParse string) {
 		case 'X':
 			output += "\x00" + Chr(byte(noteDuration))
 			AdvanceInput()
-		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-			output += Chr(Ord(input[0])+0xF0-Ord('0')) + Chr(byte(noteDuration))
+		case '0', '1', '2', '4', '5', '6', '7', '8', '9':
+			output += Chr(input[0]+0xF0-'0') + Chr(byte(noteDuration))
 			AdvanceInput()
 		default:
 			AdvanceInput()
@@ -285,8 +258,6 @@ func SoundParse(input string) (SoundParse string) {
 func init() {
 	SoundInitFreqTable()
 	SoundInitDrumTable()
-	SoundTimeCheckCounter = 36
-	UseSystemTimeForElapsed = false
 	TimerTicks = 0
 	SoundTimeCheckHsec = 0
 	SoundEnabled = true
@@ -295,7 +266,4 @@ func init() {
 	SoundDurationMultiplier = 1
 	SoundIsPlaying = false
 	TimerTicks = 0
-	SoundNewVector = &SoundTimerHandler
-	GetIntVec(0x1C, SoundOldVector)
-	SetIntVec(0x1C, SoundNewVector)
 }

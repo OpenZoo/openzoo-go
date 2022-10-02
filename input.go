@@ -35,7 +35,7 @@ var (
 	InputShiftAccepted                           bool
 	InputJoystickEnabled                         bool
 	InputMouseEnabled                            bool
-	InputKeyPressed                              byte
+	InputKeyPressed                              rune
 	InputMouseX, InputMouseY                     int16
 	InputMouseActivationX, InputMouseActivationY int16
 	InputMouseButtonX, InputMouseButtonY         int16
@@ -46,8 +46,6 @@ var (
 
 // implementation uses: Dos, Crt, Keys, Sounds
 
-const PORT_JOYSTICK = 0x201
-
 var (
 	JoystickXMin, JoystickXCenter, JoystickXMax int16
 	JoystickYMin, JoystickYCenter, JoystickYMax int16
@@ -55,15 +53,18 @@ var (
 )
 
 func InputIsJoystickButtonPressed() (InputIsJoystickButtonPressed bool) {
-	InputIsJoystickButtonPressed = Port[PORT_JOYSTICK]&0x30 != 0x30
+	// stub
+	// InputIsJoystickButtonPressed = Port[PORT_JOYSTICK]&0x30 != 0x30
+	InputIsJoystickButtonPressed = false
 	return
 }
 
 func InputJoystickGetCoords(x, y *int16) {
-	var startTicks uint16
+	// stub
+	// var startTicks uint16
 	*x = 0
 	*y = 0
-	startTicks = TimerTicks
+	/* startTicks = TimerTicks
 	Port[PORT_JOYSTICK] = 0
 	for {
 		*x += Port[PORT_JOYSTICK] & 1
@@ -76,11 +77,11 @@ func InputJoystickGetCoords(x, y *int16) {
 	if TimerTicks-startTicks > 3 {
 		*x = -1
 		*y = -1
-	}
+	} */
 }
 
 func InputCalibrateJoystickPosition(msg string, x, y *int16) (InputCalibrateJoystickPosition bool) {
-	var charTyped byte
+	var charTyped rune
 	charTyped = '\x00'
 	Write(msg)
 	for {
@@ -108,8 +109,8 @@ func InputCalibrateJoystickPosition(msg string, x, y *int16) (InputCalibrateJoys
 	if charTyped == '\x1b' {
 		InputCalibrateJoystickPosition = false
 	}
-	WriteLn()
-	WriteLn()
+	WriteLn("")
+	WriteLn("")
 	return
 }
 
@@ -127,48 +128,48 @@ func InputInitJoystick() (InputInitJoystick bool) {
 }
 
 func InputCalibrateJoystick() {
-	var charTyped byte
-CalibrationStart:
-	InputJoystickEnabled = false
+	// stub
+	/* var charTyped byte
+	CalibrationStart:
+		InputJoystickEnabled = false
 
-	WriteLn()
-	WriteLn("  Joystick calibration:  Press ESCAPE to abort.")
-	WriteLn()
-	if !InputCalibrateJoystickPosition("  Center joystick and press button: ", &JoystickXCenter, &JoystickYCenter) {
-		return
-	}
-	if !InputCalibrateJoystickPosition("  Move joystick to UPPER LEFT corner and press button: ", &JoystickXMin, &JoystickYMin) {
-		return
-	}
-	if !InputCalibrateJoystickPosition("  Move joystick to LOWER RIGHT corner and press button: ", &JoystickXMax, &JoystickYMax) {
-		return
-	}
-	JoystickXMin -= JoystickXCenter
-	JoystickXMax -= JoystickXCenter
-	JoystickYMin -= JoystickYCenter
-	JoystickYMax -= JoystickYCenter
-	if JoystickXMin < 1 && JoystickXMax > 1 && JoystickYMin < 1 && JoystickYMax > 1 {
-		InputJoystickEnabled = true
-	} else {
-		Write("  Calibration failed - try again (y/N)? ")
-		for {
-			if KeyPressed() {
-				break
+		WriteLn("")
+		WriteLn("  Joystick calibration:  Press ESCAPE to abort.")
+		WriteLn("")
+		if !InputCalibrateJoystickPosition("  Center joystick and press button: ", &JoystickXCenter, &JoystickYCenter) {
+			return
+		}
+		if !InputCalibrateJoystickPosition("  Move joystick to UPPER LEFT corner and press button: ", &JoystickXMin, &JoystickYMin) {
+			return
+		}
+		if !InputCalibrateJoystickPosition("  Move joystick to LOWER RIGHT corner and press button: ", &JoystickXMax, &JoystickYMax) {
+			return
+		}
+		JoystickXMin -= JoystickXCenter
+		JoystickXMax -= JoystickXCenter
+		JoystickYMin -= JoystickYCenter
+		JoystickYMax -= JoystickYCenter
+		if JoystickXMin < 1 && JoystickXMax > 1 && JoystickYMin < 1 && JoystickYMax > 1 {
+			InputJoystickEnabled = true
+		} else {
+			Write("  Calibration failed - try again (y/N)? ")
+			for {
+				if KeyPressed() {
+					break
+				}
 			}
-		}
-		charTyped = ReadKey()
-		WriteLn()
-		if UpCase(charTyped) == 'Y' {
-			goto CalibrationStart
-		}
-	}
+			charTyped = ReadKey()
+			WriteLn("")
+			if UpCase(charTyped) == 'Y' {
+				goto CalibrationStart
+			}
+		} */
 }
 
 func InputUpdate() {
 	var (
 		joyXraw, joyYraw int16
 		joyX, joyY       int16
-		regs             Registers
 	)
 	InputDeltaX = 0
 	InputDeltaY = 0
@@ -177,13 +178,13 @@ func InputUpdate() {
 	for KeyPressed() {
 		InputKeyPressed = ReadKey()
 		if InputKeyPressed == '\x00' || InputKeyPressed == '\x01' || InputKeyPressed == '\x02' {
-			InputKeyBuffer += Chr(Ord(ReadKey()) | 0x80)
+			InputKeyBuffer += Chr(Ord(string(ReadKey())) | 0x80)
 		} else {
-			InputKeyBuffer += string([]byte{InputKeyPressed})
+			InputKeyBuffer += string([]byte{byte(InputKeyPressed)})
 		}
 	}
 	if Length(InputKeyBuffer) != 0 {
-		InputKeyPressed = InputKeyBuffer[0]
+		InputKeyPressed = rune(InputKeyBuffer[0])
 		if Length(InputKeyBuffer) == 1 {
 			InputKeyBuffer = ""
 		} else {
@@ -240,10 +241,11 @@ func InputUpdate() {
 			InputShiftAccepted = false
 		}
 	} else if InputMouseEnabled {
-		regs.AX = 0x0B
+		// stub
+		/* regs.AX = 0x0B
 		Intr(0x33, regs)
 		InputMouseX += int16(regs.CX)
-		InputMouseY += int16(regs.DX)
+		InputMouseY += int16(regs.DX) */
 		if Abs(InputMouseX) > Abs(InputMouseY) {
 			if Abs(InputMouseX) > InputMouseActivationX {
 				if InputMouseX > 0 {
@@ -264,16 +266,17 @@ func InputUpdate() {
 			}
 		}
 
-		regs.AX = 0x03
+		// stub
+		/* regs.AX = 0x03
 		Intr(0x33, regs)
 		if regs.BX&1 != 0 {
 			if !InputShiftAccepted {
 				InputShiftPressed = true
 			}
-		} else {
+		} else */{
 			InputShiftAccepted = false
 		}
-		if regs.BX&6 != 0 {
+		/* if regs.BX&6 != 0 {
 			if InputDeltaX != 0 || InputDeltaY != 0 {
 				InputMouseButtonX = InputDeltaX
 				InputMouseButtonY = InputDeltaY
@@ -281,7 +284,7 @@ func InputUpdate() {
 				InputDeltaX = InputMouseButtonX
 				InputDeltaY = InputMouseButtonY
 			}
-		} else {
+		} else */{
 			InputMouseButtonX = 0
 			InputMouseButtonY = 0
 		}
@@ -294,10 +297,11 @@ func InputUpdate() {
 }
 
 func InputInitMouse() (InputInitMouse bool) {
-	var regs Registers
+	// stub
+	/* var regs Registers
 	regs.AX = 0
 	Intr(0x33, regs)
-	InputInitMouse = regs.AX == 0
+	InputInitMouse = regs.AX == 0 */
 	InputInitMouse = true
 	return
 }
@@ -308,10 +312,10 @@ func InputInitDevices() {
 }
 
 func InputConfigure() (InputConfigure bool) {
-	var charTyped byte
+	var charTyped rune
 	charTyped = ' '
 	if InputJoystickEnabled || InputMouseEnabled {
-		WriteLn()
+		WriteLn("")
 		Write("  Game controller:  K)eyboard")
 		if InputJoystickEnabled {
 			Write(",  J)oystick")
@@ -331,7 +335,7 @@ func InputConfigure() (InputConfigure bool) {
 				break
 			}
 		}
-		WriteLn()
+		WriteLn("")
 		InputJoystickEnabled = false
 		InputMouseEnabled = false
 		switch charTyped {
@@ -341,7 +345,7 @@ func InputConfigure() (InputConfigure bool) {
 		case 'M':
 			InputMouseEnabled = true
 		}
-		WriteLn()
+		WriteLn("")
 	}
 	InputConfigure = charTyped != '\x1b'
 	return

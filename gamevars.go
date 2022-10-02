@@ -13,6 +13,7 @@ const (
 	TORCH_DX               = 8
 	TORCH_DY               = 5
 	TORCH_DIST_SQR         = 50
+	BOARD_NAME_LENGTH      = 50
 )
 
 type (
@@ -61,10 +62,10 @@ type (
 		Follower     int16
 		Leader       int16
 		Under        TTile
-		Data         *string
+		Data         *[]byte
 		DataPos      int16
 		DataLen      int16
-		unk1, unk2   *uintptr
+		Padding      [8]byte
 	}
 	TRleTile struct {
 		Count byte
@@ -79,7 +80,7 @@ type (
 		StartPlayerX      byte
 		StartPlayerY      byte
 		TimeLimitSec      int16
-		unkPad            [16]byte
+		Padding           [16]byte
 	}
 	TWorldInfo struct {
 		Ammo           int16
@@ -90,14 +91,14 @@ type (
 		Torches        int16
 		TorchTicks     int16
 		EnergizerTicks int16
-		unk1           int16
+		Padding1       int16
 		Score          int16
 		Name           string
 		Flags          [MAX_FLAG]string
 		BoardTimeSec   int16
 		BoardTimeHsec  int16
 		IsSave         bool
-		unkPad         [14]byte
+		Padding2       [14]byte
 	}
 	TEditorStatSetting struct {
 		P1, P2, P3   byte
@@ -107,13 +108,12 @@ type (
 		Name      string
 		Tiles     [BOARD_WIDTH + 1 + 1][BOARD_HEIGHT + 1 + 1]TTile
 		StatCount int16
-		Stats     [MAX_STAT + 1 + 1]TStat
+		stats     [MAX_STAT + 1 + 2]TStat
 		Info      TBoardInfo
 	}
 	TWorld struct {
 		BoardCount         int16
-		BoardData          [MAX_BOARD + 1]*uintptr
-		BoardLen           [MAX_BOARD + 1]int16
+		BoardData          [MAX_BOARD + 1][]byte
 		Info               TWorldInfo
 		EditorStatSettings [MAX_ELEMENT + 1]TEditorStatSetting
 	}
@@ -122,8 +122,15 @@ type (
 		Score int16
 	}
 	THighScoreList [HIGH_SCORE_COUNT]THighScoreEntry
-	TIoTmpBuf      [20000]byte
 )
+
+func (b *TBoard) Stats(i int16) *TStat {
+	if i < -1 || i > (MAX_STAT+1) {
+		return &b.stats[0]
+	} else {
+		return &b.stats[i+1]
+	}
+}
 
 var (
 	PlayerDirX                  int16
@@ -155,7 +162,6 @@ var (
 	ReturnBoardId               int16
 	TransitionTableSize         int16
 	TickSpeed                   byte
-	IoTmpBuf                    *TIoTmpBuf
 	ElementDefs                 [MAX_ELEMENT + 1]TElementDef
 	EditorPatternCount          int16
 	EditorPatterns              [10]byte

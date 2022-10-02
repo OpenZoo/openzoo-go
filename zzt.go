@@ -1,19 +1,22 @@
 package main
 
+import (
+	"os"
+
+	"github.com/OpenZoo/openzoo-go/platform"
+)
+
 // uses: Crt, Dos, Video, Keys, Sounds, Input, TxtWind, GameVars, Elements, Editor, Oop, Game
 
 func ParseArguments() {
 	var (
-		i    int16
+		i    int
 		pArg string
 	)
-	for i = 1; i <= ParamCount; i++ {
-		pArg = ParamStr(i)
+	for i = 1; i < len(os.Args); i++ {
+		pArg = os.Args[i]
 		if pArg[0] == '/' {
-			switch UpCase(pArg[1]) {
-			case 'T':
-				SoundTimeCheckCounter = 0
-				UseSystemTimeForElapsed = false
+			switch UpCase(rune(pArg[1])) {
 			case 'R':
 				ResetConfig = true
 			}
@@ -27,39 +30,35 @@ func ParseArguments() {
 }
 
 func GameConfigure() {
-	var (
-		unk1                          int16
-		joystickEnabled, mouseEnabled bool
-		cfgFile                       text
-	)
 	ParsingConfigFile = true
 	EditorEnabled = true
 	ConfigRegistration = ""
 	ConfigWorldFile = ""
 	GameVersion = "3.2"
-	Assign(cfgFile, "zzt.cfg")
+	// stub
+	/* Assign(cfgFile, "zzt.cfg")
 	Reset(cfgFile)
 	if IOResult() == 0 {
 		Readln(cfgFile, ConfigWorldFile)
 		Readln(cfgFile, ConfigRegistration)
-	}
-	if ConfigWorldFile[0] == '*' {
-		EditorEnabled = false
-		ConfigWorldFile = Copy(ConfigWorldFile, 2, Length(ConfigWorldFile)-1)
-	}
-	if Length(ConfigWorldFile) != 0 {
-		StartupWorldFileName = ConfigWorldFile
+	} */
+	if Length(ConfigWorldFile) > 0 {
+		if ConfigWorldFile[0] == '*' {
+			EditorEnabled = false
+			ConfigWorldFile = ConfigWorldFile[1:]
+		}
+		if Length(ConfigWorldFile) > 0 {
+			StartupWorldFileName = ConfigWorldFile
+		}
 	}
 	InputInitDevices()
-	joystickEnabled = InputJoystickEnabled
-	mouseEnabled = InputMouseEnabled
 	ParsingConfigFile = false
 	Window(1, 1, 80, 25)
 	TextBackground(Black)
 	ClrScr()
 	TextColor(White)
 	TextColor(White)
-	WriteLn()
+	WriteLn("")
 	WriteLn("                                 <=-  ZZT  -=>")
 	TextColor(Yellow)
 	if Length(ConfigRegistration) == 0 {
@@ -87,18 +86,18 @@ func GameConfigure() {
 	TextBackground(Black)
 	ClrScr()
 	TextColor(Yellow)
-	if !InputConfigure() {
+	/* if !InputConfigure() {
 		GameTitleExitRequested = true
 	} else {
 		TextColor(LightGreen)
-		if !VideoConfigure {
+		if !VideoConfigure() {
 			GameTitleExitRequested = true
 		}
-	}
+	} */
 	Window(1, 1, 80, 25)
 }
 
-func main() {
+func ZZTMain() {
 	WorldFileDescCount = 7
 	WorldFileDescKeys[0] = "TOWN"
 	WorldFileDescValues[0] = "TOWN       The Town of ZZT"
@@ -127,7 +126,6 @@ func main() {
 		VideoInstall(80, Blue)
 		OrderPrintId = &GameVersion
 		TextWindowInit(5, 3, 50, 18)
-		New(IoTmpBuf)
 		VideoHideCursor()
 		ClrScr()
 		TickSpeed = 4
@@ -137,20 +135,23 @@ func main() {
 		GenerateTransitionTable()
 		WorldCreate()
 		GameTitleLoop()
-		Dispose(IoTmpBuf)
 	}
 	SoundUninstall()
 	SoundClearQueue()
 	VideoUninstall()
-	Port[PORT_CGA_PALETTE] = 0
+	// stub Port[PORT_CGA_PALETTE] = 0
 	TextAttr = InitialTextAttr
 	ClrScr()
 	if Length(ConfigRegistration) == 0 {
 		GamePrintRegisterMessage()
 	} else {
-		WriteLn()
+		WriteLn("")
 		WriteLn("  Registered version -- Thank you for playing ZZT.")
-		WriteLn()
+		WriteLn("")
 	}
 	VideoShowCursor()
+}
+
+func main() {
+	platform.PlatformMain(ZZTMain)
 }

@@ -17,11 +17,11 @@ func ElementDefaultTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16) 
 }
 
 func ElementDefaultDraw(x, y int16, ch *byte) {
-	*ch = Ord('?')
+	*ch = '?'
 }
 
 func ElementMessageTimerTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	switch stat.X {
 	case 0:
 		VideoWriteText((60-Length(Board.Info.Message))/2, 24, byte(9+int16(stat.P2)%7), " "+Board.Info.Message+" ")
@@ -41,7 +41,7 @@ func ElementDamagingTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16)
 
 func ElementLionTick(statId int16) {
 	var deltaX, deltaY int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if int16(stat.P1) < Random(10) {
 		CalcDirectionRnd(&deltaX, &deltaY)
 	} else {
@@ -60,20 +60,20 @@ func ElementTigerTick(statId int16) {
 		shot    bool
 		element byte
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	element = E_BULLET
 	if stat.P2 >= 0x80 {
 		element = E_STAR
 	}
 	if Random(10)*3 <= int16(stat.P2)%0x80 {
-		if Difference(int16(stat.X), int16(Board.Stats[0].X)) <= 2 {
-			shot = BoardShoot(element, int16(stat.X), int16(stat.Y), 0, Signum(int16(Board.Stats[0].Y)-int16(stat.Y)), SHOT_SOURCE_ENEMY)
+		if Difference(int16(stat.X), int16(Board.Stats(0).X)) <= 2 {
+			shot = BoardShoot(element, int16(stat.X), int16(stat.Y), 0, Signum(int16(Board.Stats(0).Y)-int16(stat.Y)), SHOT_SOURCE_ENEMY)
 		} else {
 			shot = false
 		}
 		if !shot {
-			if Difference(int16(stat.Y), int16(Board.Stats[0].Y)) <= 2 {
-				shot = BoardShoot(element, int16(stat.X), int16(stat.Y), Signum(int16(Board.Stats[0].X)-int16(stat.X)), 0, SHOT_SOURCE_ENEMY)
+			if Difference(int16(stat.Y), int16(Board.Stats(0).Y)) <= 2 {
+				shot = BoardShoot(element, int16(stat.X), int16(stat.Y), Signum(int16(Board.Stats(0).X)-int16(stat.X)), 0, SHOT_SOURCE_ENEMY)
 			}
 		}
 	}
@@ -81,7 +81,7 @@ func ElementTigerTick(statId int16) {
 }
 
 func ElementRuffianTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.StepX == 0 && stat.StepY == 0 {
 		if int16(stat.P2)+8 <= Random(17) {
 			if int16(stat.P1) >= Random(9) {
@@ -91,7 +91,7 @@ func ElementRuffianTick(statId int16) {
 			}
 		}
 	} else {
-		if (stat.Y == Board.Stats[0].Y || stat.X == Board.Stats[0].X) && Random(9) <= int16(stat.P1) {
+		if (stat.Y == Board.Stats(0).Y || stat.X == Board.Stats(0).X) && Random(9) <= int16(stat.P1) {
 			CalcDirectionSeek(int16(stat.X), int16(stat.Y), &stat.StepX, &stat.StepY)
 		}
 		tile := &Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY]
@@ -113,16 +113,16 @@ func ElementRuffianTick(statId int16) {
 
 func ElementBearTick(statId int16) {
 	var deltaX, deltaY int16
-	stat := &Board.Stats[statId]
-	if stat.X != Board.Stats[0].X {
-		if Difference(int16(stat.Y), int16(Board.Stats[0].Y)) <= 8-int16(stat.P1) {
-			deltaX = Signum(int16(Board.Stats[0].X) - int16(stat.X))
+	stat := Board.Stats(statId)
+	if stat.X != Board.Stats(0).X {
+		if Difference(int16(stat.Y), int16(Board.Stats(0).Y)) <= 8-int16(stat.P1) {
+			deltaX = Signum(int16(Board.Stats(0).X) - int16(stat.X))
 			deltaY = 0
 			goto Movement
 		}
 	}
-	if Difference(int16(stat.X), int16(Board.Stats[0].X)) <= 8-int16(stat.P1) {
-		deltaY = Signum(int16(Board.Stats[0].Y) - int16(stat.Y))
+	if Difference(int16(stat.X), int16(Board.Stats(0).X)) <= 8-int16(stat.P1) {
+		deltaY = Signum(int16(Board.Stats(0).Y) - int16(stat.Y))
 		deltaX = 0
 	} else {
 		deltaX = 0
@@ -144,12 +144,12 @@ func ElementCentipedeHeadTick(statId int16) {
 		tx, ty int16
 		tmp    int16
 	)
-	stat := &Board.Stats[statId]
-	if stat.X == Board.Stats[0].X && Random(10) < int16(stat.P1) {
-		stat.StepY = Signum(int16(Board.Stats[0].Y) - int16(stat.Y))
+	stat := Board.Stats(statId)
+	if stat.X == Board.Stats(0).X && Random(10) < int16(stat.P1) {
+		stat.StepY = Signum(int16(Board.Stats(0).Y) - int16(stat.Y))
 		stat.StepX = 0
-	} else if stat.Y == Board.Stats[0].Y && Random(10) < int16(stat.P1) {
-		stat.StepX = Signum(int16(Board.Stats[0].X) - int16(stat.X))
+	} else if stat.Y == Board.Stats(0).Y && Random(10) < int16(stat.P1) {
+		stat.StepX = Signum(int16(Board.Stats(0).X) - int16(stat.X))
 		stat.StepY = 0
 	} else if Random(10)*4 < int16(stat.P2) || stat.StepX == 0 && stat.StepY == 0 {
 		CalcDirectionRnd(&stat.StepX, &stat.StepY)
@@ -178,20 +178,20 @@ func ElementCentipedeHeadTick(statId int16) {
 	if stat.StepX == 0 && stat.StepY == 0 {
 		Board.Tiles[stat.X][stat.Y].Element = E_CENTIPEDE_SEGMENT
 		stat.Leader = -1
-		for Board.Stats[statId].Follower > 0 {
-			tmp = Board.Stats[statId].Follower
-			Board.Stats[statId].Follower = Board.Stats[statId].Leader
-			Board.Stats[statId].Leader = tmp
+		for Board.Stats(statId).Follower > 0 {
+			tmp = Board.Stats(statId).Follower
+			Board.Stats(statId).Follower = Board.Stats(statId).Leader
+			Board.Stats(statId).Leader = tmp
 			statId = tmp
 		}
-		Board.Stats[statId].Follower = Board.Stats[statId].Leader
-		Board.Tiles[Board.Stats[statId].X][Board.Stats[statId].Y].Element = E_CENTIPEDE_HEAD
+		Board.Stats(statId).Follower = Board.Stats(statId).Leader
+		Board.Tiles[Board.Stats(statId).X][Board.Stats(statId).Y].Element = E_CENTIPEDE_HEAD
 	} else if Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Element == E_PLAYER {
 		if stat.Follower != -1 {
-			Board.Tiles[Board.Stats[stat.Follower].X][Board.Stats[stat.Follower].Y].Element = E_CENTIPEDE_HEAD
-			Board.Stats[stat.Follower].StepX = stat.StepX
-			Board.Stats[stat.Follower].StepY = stat.StepY
-			BoardDrawTile(int16(Board.Stats[stat.Follower].X), int16(Board.Stats[stat.Follower].Y))
+			Board.Tiles[Board.Stats(stat.Follower).X][Board.Stats(stat.Follower).Y].Element = E_CENTIPEDE_HEAD
+			Board.Stats(stat.Follower).StepX = stat.StepX
+			Board.Stats(stat.Follower).StepY = stat.StepY
+			BoardDrawTile(int16(Board.Stats(stat.Follower).X), int16(Board.Stats(stat.Follower).Y))
 		}
 		BoardAttack(statId, int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
 	} else {
@@ -201,27 +201,27 @@ func ElementCentipedeHeadTick(statId int16) {
 		ix = stat.StepX
 		iy = stat.StepY
 		for {
-			stat2 := &Board.Stats[statId]
+			stat2 := Board.Stats(statId)
 			tx = int16(stat2.X) - stat2.StepX
 			ty = int16(stat2.Y) - stat2.StepY
 			ix = stat2.StepX
 			iy = stat2.StepY
 			if stat2.Follower < 0 {
-				if Board.Tiles[tx-ix][ty-iy].Element == E_CENTIPEDE_SEGMENT && Board.Stats[GetStatIdAt(tx-ix, ty-iy)].Leader < 0 {
+				if Board.Tiles[tx-ix][ty-iy].Element == E_CENTIPEDE_SEGMENT && Board.Stats(GetStatIdAt(tx-ix, ty-iy)).Leader < 0 {
 					stat2.Follower = GetStatIdAt(tx-ix, ty-iy)
-				} else if Board.Tiles[tx-iy][ty-ix].Element == E_CENTIPEDE_SEGMENT && Board.Stats[GetStatIdAt(tx-iy, ty-ix)].Leader < 0 {
+				} else if Board.Tiles[tx-iy][ty-ix].Element == E_CENTIPEDE_SEGMENT && Board.Stats(GetStatIdAt(tx-iy, ty-ix)).Leader < 0 {
 					stat2.Follower = GetStatIdAt(tx-iy, ty-ix)
-				} else if Board.Tiles[tx+iy][ty+ix].Element == E_CENTIPEDE_SEGMENT && Board.Stats[GetStatIdAt(tx+iy, ty+ix)].Leader < 0 {
+				} else if Board.Tiles[tx+iy][ty+ix].Element == E_CENTIPEDE_SEGMENT && Board.Stats(GetStatIdAt(tx+iy, ty+ix)).Leader < 0 {
 					stat2.Follower = GetStatIdAt(tx+iy, ty+ix)
 				}
 
 			}
 			if stat2.Follower > 0 {
-				Board.Stats[stat2.Follower].Leader = statId
-				Board.Stats[stat2.Follower].P1 = stat2.P1
-				Board.Stats[stat2.Follower].P2 = stat2.P2
-				Board.Stats[stat2.Follower].StepX = tx - int16(Board.Stats[stat2.Follower].X)
-				Board.Stats[stat2.Follower].StepY = ty - int16(Board.Stats[stat2.Follower].Y)
+				Board.Stats(stat2.Follower).Leader = statId
+				Board.Stats(stat2.Follower).P1 = stat2.P1
+				Board.Stats(stat2.Follower).P2 = stat2.P2
+				Board.Stats(stat2.Follower).StepX = tx - int16(Board.Stats(stat2.Follower).X)
+				Board.Stats(stat2.Follower).StepY = ty - int16(Board.Stats(stat2.Follower).Y)
 				MoveStat(stat2.Follower, tx, ty)
 			}
 			statId = stat2.Follower
@@ -234,7 +234,7 @@ func ElementCentipedeHeadTick(statId int16) {
 }
 
 func ElementCentipedeSegmentTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.Leader < 0 {
 		if stat.Leader < -1 {
 			Board.Tiles[stat.X][stat.Y].Element = E_CENTIPEDE_HEAD
@@ -251,7 +251,7 @@ func ElementBulletTick(statId int16) {
 		iElem    byte
 		firstTry bool
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	firstTry = true
 TryMove:
 	ix = int16(stat.X) + stat.StepX
@@ -329,7 +329,7 @@ func ElementLineDraw(x, y int16, ch *byte) {
 		}
 		shift = shift << 1
 	}
-	*ch = Ord(LineChars[v-1])
+	*ch = LineChars[v-1]
 }
 
 func ElementSpinningGunTick(statId int16) {
@@ -338,7 +338,7 @@ func ElementSpinningGunTick(statId int16) {
 		deltaX, deltaY int16
 		element        byte
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	BoardDrawTile(int16(stat.X), int16(stat.Y))
 	element = E_BULLET
 	if stat.P2 >= 0x80 {
@@ -346,14 +346,14 @@ func ElementSpinningGunTick(statId int16) {
 	}
 	if Random(9) < int16(stat.P2)%0x80 {
 		if Random(9) <= int16(stat.P1) {
-			if Difference(int16(stat.X), int16(Board.Stats[0].X)) <= 2 {
-				shot = BoardShoot(element, int16(stat.X), int16(stat.Y), 0, Signum(int16(Board.Stats[0].Y)-int16(stat.Y)), SHOT_SOURCE_ENEMY)
+			if Difference(int16(stat.X), int16(Board.Stats(0).X)) <= 2 {
+				shot = BoardShoot(element, int16(stat.X), int16(stat.Y), 0, Signum(int16(Board.Stats(0).Y)-int16(stat.Y)), SHOT_SOURCE_ENEMY)
 			} else {
 				shot = false
 			}
 			if !shot {
-				if Difference(int16(stat.Y), int16(Board.Stats[0].Y)) <= 2 {
-					shot = BoardShoot(element, int16(stat.X), int16(stat.Y), Signum(int16(Board.Stats[0].X)-int16(stat.X)), 0, SHOT_SOURCE_ENEMY)
+				if Difference(int16(stat.Y), int16(Board.Stats(0).Y)) <= 2 {
+					shot = BoardShoot(element, int16(stat.X), int16(stat.Y), Signum(int16(Board.Stats(0).X)-int16(stat.X)), 0, SHOT_SOURCE_ENEMY)
 				}
 			}
 		} else {
@@ -448,7 +448,7 @@ func ElementConveyorCWDraw(x, y int16, ch *byte) {
 }
 
 func ElementConveyorCWTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	BoardDrawTile(int16(stat.X), int16(stat.Y))
 	ElementConveyorTick(int16(stat.X), int16(stat.Y), 1)
 }
@@ -467,13 +467,13 @@ func ElementConveyorCCWDraw(x, y int16, ch *byte) {
 }
 
 func ElementConveyorCCWTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	BoardDrawTile(int16(stat.X), int16(stat.Y))
 	ElementConveyorTick(int16(stat.X), int16(stat.Y), -1)
 }
 
 func ElementBombDraw(x, y int16, ch *byte) {
-	stat := &Board.Stats[GetStatIdAt(x, y)]
+	stat := Board.Stats(GetStatIdAt(x, y))
 	if stat.P1 <= 1 {
 		*ch = 11
 	} else {
@@ -483,7 +483,7 @@ func ElementBombDraw(x, y int16, ch *byte) {
 
 func ElementBombTick(statId int16) {
 	var oldX, oldY int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.P1 > 0 {
 		stat.P1--
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
@@ -507,7 +507,7 @@ func ElementBombTick(statId int16) {
 }
 
 func ElementBombTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16) {
-	stat := &Board.Stats[GetStatIdAt(x, y)]
+	stat := Board.Stats(GetStatIdAt(x, y))
 	if stat.P1 == 0 {
 		stat.P1 = 9
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
@@ -526,7 +526,7 @@ func ElementTransporterMove(x, y, deltaX, deltaY int16) {
 		finishSearch bool
 		isValidDest  bool
 	)
-	stat := &Board.Stats[GetStatIdAt(x+deltaX, y+deltaY)]
+	stat := Board.Stats(GetStatIdAt(x+deltaX, y+deltaY))
 	if deltaX == stat.StepX && deltaY == stat.StepY {
 		ix = int16(stat.X)
 		iy = int16(stat.Y)
@@ -555,7 +555,7 @@ func ElementTransporterMove(x, y, deltaX, deltaY int16) {
 
 			if tile.Element == E_TRANSPORTER {
 				iStat = GetStatIdAt(ix, iy)
-				if Board.Stats[iStat].StepX == -deltaX && Board.Stats[iStat].StepY == -deltaY {
+				if Board.Stats(iStat).StepX == -deltaX && Board.Stats(iStat).StepY == -deltaY {
 					isValidDest = true
 				}
 			}
@@ -577,21 +577,21 @@ func ElementTransporterTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int
 }
 
 func ElementTransporterTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	BoardDrawTile(int16(stat.X), int16(stat.Y))
 }
 
 func ElementTransporterDraw(x, y int16, ch *byte) {
-	stat := &Board.Stats[GetStatIdAt(x, y)]
+	stat := Board.Stats(GetStatIdAt(x, y))
 	if stat.StepX == 0 {
-		*ch = Ord(TransporterNSChars[stat.StepY*2+3+CurrentTick/stat.Cycle%4-1])
+		*ch = TransporterNSChars[stat.StepY*2+3+CurrentTick/stat.Cycle%4-1]
 	} else {
-		*ch = Ord(TransporterEWChars[stat.StepX*2+3+CurrentTick/stat.Cycle%4-1])
+		*ch = TransporterEWChars[stat.StepX*2+3+CurrentTick/stat.Cycle%4-1]
 	}
 }
 
 func ElementStarDraw(x, y int16, ch *byte) {
-	*ch = Ord(StarAnimChars[CurrentTick%4+1-1])
+	*ch = StarAnimChars[CurrentTick%4+1-1]
 	Board.Tiles[x][y].Color++
 	if Board.Tiles[x][y].Color > 15 {
 		Board.Tiles[x][y].Color = 9
@@ -599,7 +599,7 @@ func ElementStarDraw(x, y int16, ch *byte) {
 }
 
 func ElementStarTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	stat.P2--
 	if stat.P2 <= 0 {
 		RemoveStat(statId)
@@ -641,7 +641,7 @@ func ElementSlimeTick(statId int16) {
 		dir, color, changedTiles int16
 		startX, startY           int16
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.P1 < stat.P2 {
 		stat.P1++
 	} else {
@@ -659,7 +659,7 @@ func ElementSlimeTick(statId int16) {
 					BoardDrawTile(startX, startY)
 				} else {
 					AddStat(startX+NeighborDeltaX[dir], startY+NeighborDeltaY[dir], E_SLIME, color, ElementDefs[E_SLIME].Cycle, StatTemplateDefault)
-					Board.Stats[Board.StatCount].P2 = stat.P2
+					Board.Stats(Board.StatCount).P2 = stat.P2
 				}
 				changedTiles++
 			}
@@ -685,7 +685,7 @@ func ElementSlimeTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16) {
 
 func ElementSharkTick(statId int16) {
 	var deltaX, deltaY int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if int16(stat.P1) < Random(10) {
 		CalcDirectionRnd(&deltaX, &deltaY)
 	} else {
@@ -710,7 +710,7 @@ func ElementBlinkWallTick(statId int16) {
 		playerStatId int16
 		el           int16
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.P3 == 0 {
 		stat.P3 = byte(int16(stat.P1) + 1)
 	}
@@ -793,7 +793,6 @@ func ElementMove(oldX, oldY, newX, newY int16) {
 }
 
 func ElementPushablePush(x, y int16, deltaX, deltaY int16) {
-	var unk1 int16
 	tile := &Board.Tiles[x][y]
 	if tile.Element == E_SLIDER_NS && deltaX == 0 || tile.Element == E_SLIDER_EW && deltaY == 0 || ElementDefs[tile.Element].Pushable {
 		if Board.Tiles[x+deltaX][y+deltaY].Element == E_TRANSPORTER {
@@ -812,7 +811,7 @@ func ElementPushablePush(x, y int16, deltaX, deltaY int16) {
 }
 
 func ElementDuplicatorDraw(x, y int16, ch *byte) {
-	stat := &Board.Stats[GetStatIdAt(x, y)]
+	stat := Board.Stats(GetStatIdAt(x, y))
 	switch stat.P1 {
 	case 1:
 		*ch = 250
@@ -830,8 +829,7 @@ func ElementDuplicatorDraw(x, y int16, ch *byte) {
 }
 
 func ElementObjectTick(statId int16) {
-	var retVal bool
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.DataPos >= 0 {
 		OopExecute(statId, &stat.DataPos, "Interaction")
 	}
@@ -839,27 +837,26 @@ func ElementObjectTick(statId int16) {
 		if ElementDefs[Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Element].Walkable {
 			MoveStat(statId, int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
 		} else {
-			retVal = OopSend(-statId, "THUD", false)
+			OopSend(-statId, "THUD", false)
 		}
 	}
 }
 
 func ElementObjectDraw(x, y int16, ch *byte) {
-	*ch = Board.Stats[GetStatIdAt(x, y)].P1
+	*ch = Board.Stats(GetStatIdAt(x, y)).P1
 }
 
 func ElementObjectTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16) {
 	var (
 		statId int16
-		retVal bool
 	)
 	statId = GetStatIdAt(x, y)
-	retVal = OopSend(-statId, "TOUCH", false)
+	OopSend(-statId, "TOUCH", false)
 }
 
 func ElementDuplicatorTick(statId int16) {
 	var sourceStatId int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.P1 <= 4 {
 		stat.P1++
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
@@ -875,7 +872,7 @@ func ElementDuplicatorTick(statId int16) {
 				sourceStatId = GetStatIdAt(int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
 				if sourceStatId > 0 {
 					if Board.StatCount < MAX_STAT+24 {
-						AddStat(int16(stat.X)-stat.StepX, int16(stat.Y)-stat.StepY, Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Element, int16(Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Color), Board.Stats[sourceStatId].Cycle, Board.Stats[sourceStatId])
+						AddStat(int16(stat.X)-stat.StepX, int16(stat.Y)-stat.StepY, Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Element, int16(Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Color), Board.Stats(sourceStatId).Cycle, *Board.Stats(sourceStatId))
 						BoardDrawTile(int16(stat.X)-stat.StepX, int16(stat.Y)-stat.StepY)
 					}
 				} else if sourceStatId != 0 {
@@ -895,7 +892,7 @@ func ElementDuplicatorTick(statId int16) {
 }
 
 func ElementScrollTick(statId int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	Board.Tiles[stat.X][stat.Y].Color++
 	if Board.Tiles[stat.X][stat.Y].Color > 0x0F {
 		Board.Tiles[stat.X][stat.Y].Color = 0x09
@@ -907,10 +904,9 @@ func ElementScrollTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16) {
 	var (
 		textWindow TTextWindowState
 		statId     int16
-		unk1       int16
 	)
 	statId = GetStatIdAt(x, y)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	textWindow.Selectable = false
 	textWindow.LinePos = 1
 	SoundQueue(2, SoundParse("c-c+d-d+e-e+f-f+g-g"))
@@ -986,7 +982,7 @@ func ElementPushableTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16)
 }
 
 func ElementPusherDraw(x, y int16, ch *byte) {
-	stat := &Board.Stats[GetStatIdAt(x, y)]
+	stat := Board.Stats(GetStatIdAt(x, y))
 	if stat.StepX == 1 {
 		*ch = 16
 	} else if stat.StepX == -1 {
@@ -1001,20 +997,20 @@ func ElementPusherDraw(x, y int16, ch *byte) {
 
 func ElementPusherTick(statId int16) {
 	var i, startX, startY int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	startX = int16(stat.X)
 	startY = int16(stat.Y)
 	if !ElementDefs[Board.Tiles[int16(stat.X)+stat.StepX][int16(stat.Y)+stat.StepY].Element].Walkable {
 		ElementPushablePush(int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY, stat.StepX, stat.StepY)
 	}
 	statId = GetStatIdAt(startX, startY)
-	stat2 := &Board.Stats[statId]
+	stat2 := Board.Stats(statId)
 	if ElementDefs[Board.Tiles[int16(stat2.X)+stat2.StepX][int16(stat2.Y)+stat2.StepY].Element].Walkable {
 		MoveStat(statId, int16(stat2.X)+stat2.StepX, int16(stat2.Y)+stat2.StepY)
 		SoundQueue(2, "\x15\x01")
 		if Board.Tiles[int16(stat2.X)-stat2.StepX*2][int16(stat2.Y)-stat2.StepY*2].Element == E_PUSHER {
 			i = GetStatIdAt(int16(stat2.X)-stat2.StepX*2, int16(stat2.Y)-stat2.StepY*2)
-			if Board.Stats[i].StepX == stat2.StepX && Board.Stats[i].StepY == stat2.StepY {
+			if Board.Stats(i).StepX == stat2.StepX && Board.Stats(i).StepY == stat2.StepY {
 				ElementDefs[E_PUSHER].TickProc(i)
 			}
 		}
@@ -1064,8 +1060,8 @@ func ElementBoardEdgeTouch(x, y int16, sourceStatId int16, deltaX, deltaY *int16
 		boardId        int16
 		entryX, entryY int16
 	)
-	entryX = int16(Board.Stats[0].X)
-	entryY = int16(Board.Stats[0].Y)
+	entryX = int16(Board.Stats(0).X)
+	entryY = int16(Board.Stats(0).Y)
 	if *deltaY == -1 {
 		neighborId = 0
 		entryY = BOARD_HEIGHT
@@ -1109,7 +1105,6 @@ func DrawPlayerSurroundings(x, y int16, bombPhase int16) {
 	var (
 		ix, iy int16
 		istat  int16
-		result bool
 	)
 	for ix = x - TORCH_DX - 1; ix <= x+TORCH_DX+1; ix++ {
 		if ix >= 1 && ix <= BOARD_WIDTH {
@@ -1121,7 +1116,7 @@ func DrawPlayerSurroundings(x, y int16, bombPhase int16) {
 							if Length(ElementDefs[tile.Element].ParamTextName) != 0 {
 								istat = GetStatIdAt(ix, iy)
 								if istat > 0 {
-									result = OopSend(-istat, "BOMBED", false)
+									OopSend(-istat, "BOMBED", false)
 								}
 							}
 							if ElementDefs[tile.Element].Destructible || tile.Element == E_STAR {
@@ -1160,11 +1155,10 @@ func GamePromptEndPlay() {
 
 func ElementPlayerTick(statId int16) {
 	var (
-		unk1, unk2, unk3 int16
-		i                int16
-		bulletCount      int16
+		i           int16
+		bulletCount int16
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if World.Info.EnergizerTicks > 0 {
 		if ElementDefs[E_PLAYER].Character == '\x02' {
 			ElementDefs[E_PLAYER].Character = '\x01'
@@ -1212,7 +1206,7 @@ func ElementPlayerTick(statId int16) {
 			} else {
 				bulletCount = 0
 				for i = 0; i <= Board.StatCount; i++ {
-					if Board.Tiles[Board.Stats[i].X][Board.Stats[i].Y].Element == E_BULLET && Board.Stats[i].P1 == SHOT_SOURCE_PLAYER {
+					if Board.Tiles[Board.Stats(i).X][Board.Stats(i).Y].Element == E_BULLET && Board.Stats(i).P1 == SHOT_SOURCE_PLAYER {
 						bulletCount++
 					}
 				}

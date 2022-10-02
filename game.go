@@ -1,6 +1,17 @@
 package main // unit: Game
 
-// interface uses: GameVars, TxtWind
+import (
+	"bufio"
+	"bytes"
+	"fmt"
+	"io"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/OpenZoo/openzoo-go/platform"
+)
 
 const (
 	PROMPT_NUMERIC  = 0
@@ -56,19 +67,15 @@ func GenerateTransitionTable() {
 	}
 }
 
-func AdvancePointer(address **uintptr, count int16) {
-	*address = Ptr(Seg(**address), Ofs(**address)+count)
-}
-
 func BoardClose() {
 	var (
 		ix, iy int16
-		ptr    *uintptr
+		buf    bytes.Buffer
 		rle    TRleTile
 	)
-	ptr = IoTmpBuf
-	Move(Board.Name, *ptr, SizeOf(Board.Name))
-	AdvancePointer(&ptr, SizeOf(Board.Name))
+	w := bufio.NewWriter(&buf)
+	WritePString(w, []byte(Board.Name), BOARD_NAME_LENGTH)
+
 	ix = 1
 	iy = 1
 	rle.Count = 1
@@ -82,8 +89,10 @@ func BoardClose() {
 		if Board.Tiles[ix][iy].Color == rle.Tile.Color && Board.Tiles[ix][iy].Element == rle.Tile.Element && rle.Count < 255 && iy <= BOARD_HEIGHT {
 			rle.Count++
 		} else {
-			Move(rle, *ptr, SizeOf(rle))
-			AdvancePointer(&ptr, SizeOf(rle))
+			WritePByte(w, rle.Count)
+			WritePByte(w, rle.Tile.Element)
+			WritePByte(w, rle.Tile.Color)
+
 			rle.Tile = Board.Tiles[ix][iy]
 			rle.Count = 1
 		}
@@ -91,52 +100,45 @@ func BoardClose() {
 			break
 		}
 	}
-	Move(Board.Info, *ptr, SizeOf(Board.Info))
-	AdvancePointer(&ptr, SizeOf(Board.Info))
-	Move(Board.StatCount, *ptr, SizeOf(Board.StatCount))
-	AdvancePointer(&ptr, SizeOf(Board.StatCount))
+	WriteBoardInfo(w, Board.Info)
+	WritePShort(w, Board.StatCount)
 	for ix = 0; ix <= Board.StatCount; ix++ {
-		stat := &Board.Stats[ix]
+		stat := Board.Stats(ix)
 		if stat.DataLen > 0 {
 			for iy = 1; iy <= ix-1; iy++ {
-				if Board.Stats[iy].Data == stat.Data {
+				if Board.Stats(iy).Data == stat.Data {
 					stat.DataLen = -iy
 				}
 			}
 		}
-		Move(Board.Stats[ix], *ptr, SizeOf(TStat))
-		AdvancePointer(&ptr, SizeOf(TStat))
+		WriteStat(w, *Board.Stats(ix))
 		if stat.DataLen > 0 {
-			Move(*stat.Data, *ptr, stat.DataLen)
-			FreeMem(stat.Data, stat.DataLen)
-			AdvancePointer(&ptr, stat.DataLen)
+			WritePString(w, *Board.Stats(ix).Data, int(Board.Stats(ix).DataLen))
 		}
 	}
-	FreeMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-	World.BoardLen[World.Info.CurrentBoard] = Ofs(*ptr) - Ofs(*IoTmpBuf)
-	GetMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-	Move(*IoTmpBuf, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
+	w.Flush()
+	fmt.Printf("w %v\n", buf.Bytes())
+	World.BoardData[World.Info.CurrentBoard] = buf.Bytes()
 }
 
 func BoardOpen(boardId int16) {
 	var (
-		ptr    *uintptr
 		ix, iy int16
 		rle    TRleTile
 	)
 	if boardId > World.BoardCount {
 		boardId = World.Info.CurrentBoard
 	}
-	ptr = World.BoardData[boardId]
-	Move(*ptr, Board.Name, SizeOf(Board.Name))
-	AdvancePointer(&ptr, SizeOf(Board.Name))
+	r := bytes.NewReader(World.BoardData[boardId])
+	ReadPString(r, &Board.Name, BOARD_NAME_LENGTH)
 	ix = 1
 	iy = 1
 	rle.Count = 0
 	for {
 		if rle.Count <= 0 {
-			Move(*ptr, rle, SizeOf(rle))
-			AdvancePointer(&ptr, SizeOf(rle))
+			ReadPByte(r, &rle.Count)
+			ReadPByte(r, &rle.Tile.Element)
+			ReadPByte(r, &rle.Tile.Color)
 		}
 		Board.Tiles[ix][iy] = rle.Tile
 		ix++
@@ -149,21 +151,18 @@ func BoardOpen(boardId int16) {
 			break
 		}
 	}
-	Move(*ptr, Board.Info, SizeOf(Board.Info))
-	AdvancePointer(&ptr, SizeOf(Board.Info))
-	Move(*ptr, Board.StatCount, SizeOf(Board.StatCount))
-	AdvancePointer(&ptr, SizeOf(Board.StatCount))
+	ReadBoardInfo(r, &Board.Info)
+	ReadPShort(r, &Board.StatCount)
 	for ix = 0; ix <= Board.StatCount; ix++ {
-		stat := &Board.Stats[ix]
-		Move(*ptr, Board.Stats[ix], SizeOf(TStat))
-		AdvancePointer(&ptr, SizeOf(TStat))
+		stat := Board.Stats(ix)
+		ReadStat(r, stat)
 		if stat.DataLen > 0 {
-			GetMem(stat.Data, stat.DataLen)
-			Move(*ptr, *stat.Data, stat.DataLen)
-			AdvancePointer(&ptr, stat.DataLen)
+			data := make([]byte, stat.DataLen)
+			r.Read(data)
+			stat.Data = &data
 		} else if stat.DataLen < 0 {
-			stat.Data = Board.Stats[-stat.DataLen].Data
-			stat.DataLen = Board.Stats[-stat.DataLen].DataLen
+			stat.Data = Board.Stats(-stat.DataLen).Data
+			stat.DataLen = Board.Stats(-stat.DataLen).DataLen
 		}
 
 	}
@@ -171,8 +170,8 @@ func BoardOpen(boardId int16) {
 }
 
 func BoardChange(boardId int16) {
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element = E_PLAYER
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Color = ElementDefs[E_PLAYER].Color
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
 	BoardClose()
 	BoardOpen(boardId)
 }
@@ -213,20 +212,20 @@ func BoardCreate() {
 	Board.Tiles[BOARD_WIDTH/2][BOARD_HEIGHT/2].Element = E_PLAYER
 	Board.Tiles[BOARD_WIDTH/2][BOARD_HEIGHT/2].Color = ElementDefs[E_PLAYER].Color
 	Board.StatCount = 0
-	Board.Stats[0].X = BOARD_WIDTH / 2
-	Board.Stats[0].Y = BOARD_HEIGHT / 2
-	Board.Stats[0].Cycle = 1
-	Board.Stats[0].Under.Element = E_EMPTY
-	Board.Stats[0].Under.Color = 0
-	Board.Stats[0].Data = nil
-	Board.Stats[0].DataLen = 0
+	Board.Stats(0).X = BOARD_WIDTH / 2
+	Board.Stats(0).Y = BOARD_HEIGHT / 2
+	Board.Stats(0).Cycle = 1
+	Board.Stats(0).Under.Element = E_EMPTY
+	Board.Stats(0).Under.Color = 0
+	Board.Stats(0).Data = nil
+	Board.Stats(0).DataLen = 0
 }
 
 func WorldCreate() {
 	var i int16
 	InitElementsGame()
 	World.BoardCount = 0
-	World.BoardLen[0] = 0
+	World.BoardData[0] = make([]byte, 0)
 	InitEditorStatSettings()
 	ResetMessageNotShownFlags()
 	BoardCreate()
@@ -263,7 +262,7 @@ func TransitionDrawToFill(chr byte, color int16) {
 func BoardDrawTile(x, y int16) {
 	var ch byte
 	tile := &Board.Tiles[x][y]
-	if !Board.Info.IsDark || ElementDefs[Board.Tiles[x][y].Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats[0].X)-x)+Sqr(int16(Board.Stats[0].Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
+	if !Board.Info.IsDark || ElementDefs[Board.Tiles[x][y].Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats(0).X)-x)+Sqr(int16(Board.Stats(0).Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
 		if tile.Element == E_EMPTY {
 			VideoWriteText(x-1, y-1, 0x0F, " ")
 		} else if ElementDefs[tile.Element].HasDrawProc {
@@ -355,7 +354,7 @@ func SidebarPromptSlider(editable bool, x, y int16, prompt string, value *byte) 
 	VideoWriteText(x, y, byte(BoolToInt(editable)+0x1E), prompt)
 	SidebarClearLine(y + 1)
 	SidebarClearLine(y + 2)
-	VideoWriteText(x, y+2, 0x1E, startChar+"....:...."+endChar)
+	VideoWriteText(x, y+2, 0x1E, string(rune(startChar))+"....:...."+string(rune(endChar)))
 	for {
 		if editable {
 			if InputJoystickMoved {
@@ -364,7 +363,7 @@ func SidebarPromptSlider(editable bool, x, y int16, prompt string, value *byte) 
 			VideoWriteText(x+int16(*value)+1, y+1, 0x9F, "\x1f")
 			InputUpdate()
 			if InputKeyPressed >= '1' && InputKeyPressed <= '9' {
-				*value = Ord(InputKeyPressed) - 49
+				*value = byte(InputKeyPressed) - 49
 				SidebarClearLine(y + 1)
 			} else {
 				newValue = int16(*value) + InputDeltaX
@@ -464,13 +463,13 @@ func PromptString(x, y, arrowColor, color, width int16, mode byte, buffer *strin
 			switch mode {
 			case PROMPT_NUMERIC:
 				if InputKeyPressed >= '0' && InputKeyPressed <= '9' {
-					*buffer += string([]byte{InputKeyPressed})
+					*buffer += string([]byte{byte(InputKeyPressed)})
 				}
 			case PROMPT_ANY:
-				*buffer += string([]byte{InputKeyPressed})
+				*buffer += string([]byte{byte(InputKeyPressed)})
 			case PROMPT_ALPHANUM:
 				if UpCase(InputKeyPressed) >= 'A' && UpCase(InputKeyPressed) <= 'Z' || InputKeyPressed >= '0' && InputKeyPressed <= '9' || InputKeyPressed == '-' {
-					*buffer += string([]byte{UpCase(InputKeyPressed)})
+					*buffer += string([]byte{byte(UpCase(InputKeyPressed))})
 				}
 			}
 		} else if InputKeyPressed == KEY_LEFT || InputKeyPressed == KEY_BACKSPACE {
@@ -526,21 +525,13 @@ func PauseOnError() {
 	Delay(2000)
 }
 
-func DisplayIOError() (DisplayIOError bool) {
+func DisplayIOError(e error) bool {
 	var (
-		errorNumStr string
-		textWindow  TTextWindowState
+		textWindow TTextWindowState
 	)
-	if IOResult() == 0 {
-		DisplayIOError = false
-		return
-	}
-	DisplayIOError = true
-	textWindow.Title = Str(IOResult())
-	textWindow.Title = "Error # " + textWindow.Title
+	// stub: appropriately shorten length, etc
+	textWindow.Title = e.Error()
 	TextWindowInitState(&textWindow)
-	TextWindowAppend(&textWindow, "$DOS Error: ")
-	TextWindowAppend(&textWindow, "")
 	TextWindowAppend(&textWindow, "This may be caused by missing")
 	TextWindowAppend(&textWindow, "ZZT files or a bad disk.  If")
 	TextWindowAppend(&textWindow, "you are trying to save a game,")
@@ -551,22 +542,21 @@ func DisplayIOError() (DisplayIOError bool) {
 	TextWindowSelect(&textWindow, false, false)
 	TextWindowDrawClose(&textWindow)
 	TextWindowFree(&textWindow)
-	return
+	return false
 }
 
 func WorldUnload() {
 	var i int16
 	BoardClose()
 	for i = 0; i <= World.BoardCount; i++ {
-		FreeMem(World.BoardData[i], World.BoardLen[i])
+		World.BoardData[i] = nil
 	}
 }
 
 func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
 	var (
-		f            *File
-		ptr          *uintptr
 		boardId      int16
+		boardLen     uint16
 		loadProgress int16
 	)
 	SidebarAnimateLoading := func() {
@@ -580,96 +570,98 @@ func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
 	SidebarClearLine(5)
 	SidebarClearLine(5)
 	VideoWriteText(62, 5, 0x1F, "Loading.....")
-	Assign(f, filename+extension)
-	Reset(f, 1)
-	if !DisplayIOError() {
-		WorldUnload()
-		BlockRead(f, *IoTmpBuf, WORLD_FILE_HEADER_SIZE)
-		if !DisplayIOError() {
-			ptr = IoTmpBuf
-			Move(*ptr, World.BoardCount, SizeOf(World.BoardCount))
-			AdvancePointer(&ptr, SizeOf(World.BoardCount))
-			if World.BoardCount < 0 {
-				if World.BoardCount != -1 {
-					VideoWriteText(63, 5, 0x1E, "You need a newer")
-					VideoWriteText(63, 6, 0x1E, " version of ZZT!")
-					return
-				} else {
-					Move(*ptr, World.BoardCount, SizeOf(World.BoardCount))
-					AdvancePointer(&ptr, SizeOf(World.BoardCount))
-				}
+
+	f, err := os.Open(PathFindCaseInsensitiveFile(filename + extension))
+	if err != nil {
+		return DisplayIOError(err)
+	}
+	defer f.Close()
+
+	WorldUnload()
+	if err := ReadPShort(f, &World.BoardCount); err != nil {
+		return DisplayIOError(err)
+	}
+	if World.BoardCount < 0 {
+		if World.BoardCount != -1 {
+			VideoWriteText(63, 5, 0x1E, "You need a newer")
+			VideoWriteText(63, 6, 0x1E, " version of ZZT!")
+			return
+		} else {
+			if err := ReadPShort(f, &World.BoardCount); err != nil {
+				return DisplayIOError(err)
 			}
-			Move(*ptr, World.Info, SizeOf(World.Info))
-			AdvancePointer(&ptr, SizeOf(World.Info))
-			if titleOnly {
-				World.BoardCount = 0
-				World.Info.CurrentBoard = 0
-				World.Info.IsSave = true
-			}
-			for boardId = 0; boardId <= World.BoardCount; boardId++ {
-				SidebarAnimateLoading()
-				BlockRead(f, World.BoardLen[boardId], 2)
-				GetMem(World.BoardData[boardId], World.BoardLen[boardId])
-				BlockRead(f, *World.BoardData[boardId], World.BoardLen[boardId])
-			}
-			Close(f)
-			BoardOpen(World.Info.CurrentBoard)
-			LoadedGameFileName = filename
-			WorldLoad = true
-			HighScoresLoad()
-			SidebarClearLine(5)
 		}
 	}
+	if err := ReadWorldInfo(f, &World.Info); err != nil {
+		return DisplayIOError(err)
+	}
+	if titleOnly {
+		World.BoardCount = 0
+		World.Info.CurrentBoard = 0
+		World.Info.IsSave = true
+	}
+	_, err = f.Seek(WORLD_FILE_HEADER_SIZE, os.SEEK_SET)
+	if err != nil {
+		return DisplayIOError(err)
+	}
+	for boardId = 0; boardId <= World.BoardCount; boardId++ {
+		SidebarAnimateLoading()
+		ReadPUShort(f, &boardLen)
+		data := make([]byte, boardLen)
+		_, err := f.Read(data)
+		if err != nil {
+			return DisplayIOError(err)
+		}
+		World.BoardData[boardId] = data
+	}
+	BoardOpen(World.Info.CurrentBoard)
+	LoadedGameFileName = filename
+	WorldLoad = true
+	HighScoresLoad()
+	SidebarClearLine(5)
+
 	return
 }
 
-func WorldSave(filename, extension string) {
+func WorldSave(filename, extension string) bool {
 	var (
-		f       *File
-		i       int16
-		unk1    int16
-		ptr     *uintptr
-		version int16
+		i int16
 	)
 	BoardClose()
 	VideoWriteText(63, 5, 0x1F, "Saving...")
-	Assign(f, filename+extension)
-	Rewrite(f, 1)
-	if !DisplayIOError() {
-		ptr = IoTmpBuf
-		FillChar(*IoTmpBuf, WORLD_FILE_HEADER_SIZE, 0)
-		version = -1
-		Move(version, *ptr, SizeOf(version))
-		AdvancePointer(&ptr, SizeOf(version))
-		Move(World.BoardCount, *ptr, SizeOf(World.BoardCount))
-		AdvancePointer(&ptr, SizeOf(World.BoardCount))
-		Move(World.Info, *ptr, SizeOf(World.Info))
-		AdvancePointer(&ptr, SizeOf(World.Info))
-		BlockWrite(f, *IoTmpBuf, WORLD_FILE_HEADER_SIZE)
-		if DisplayIOError() {
-			goto OnError
+	f, err := os.Create(PathFindCaseInsensitiveFile(filename + extension))
+	if err != nil {
+		return DisplayIOError(err)
+	}
+	defer f.Close()
+
+	// version
+	if err := WritePShort(f, -1); err != nil {
+		return DisplayIOError(err)
+	}
+	if err := WritePShort(f, World.BoardCount); err != nil {
+		return DisplayIOError(err)
+	}
+	if err := WriteWorldInfo(f, World.Info); err != nil {
+		return DisplayIOError(err)
+	}
+	if _, err := f.Seek(WORLD_FILE_HEADER_SIZE, os.SEEK_SET); err != nil {
+		return DisplayIOError(err)
+	}
+
+	for i = 0; i <= World.BoardCount; i++ {
+		if err := WritePUShort(f, uint16(len(World.BoardData[i]))); err != nil {
+			return DisplayIOError(err)
 		}
-		for i = 0; i <= World.BoardCount; i++ {
-			BlockWrite(f, World.BoardLen[i], 2)
-			if DisplayIOError() {
-				goto OnError
-			}
-			BlockWrite(f, *World.BoardData[i], World.BoardLen[i])
-			if DisplayIOError() {
-				goto OnError
-			}
+		if _, err := f.Write(World.BoardData[i]); err != nil {
+			return DisplayIOError(err)
 		}
 	}
-	BoardOpen(World.Info.CurrentBoard)
-	SidebarClearLine(5)
-	Close(f)
-	return
-OnError:
-	Close(f)
 
-	Erase(f)
 	BoardOpen(World.Info.CurrentBoard)
 	SidebarClearLine(5)
+
+	return true
 }
 
 func GameWorldSave(prompt string, filename *string, extension string) {
@@ -687,10 +679,9 @@ func GameWorldSave(prompt string, filename *string, extension string) {
 
 func GameWorldLoad(extension string) (GameWorldLoad bool) {
 	var (
-		textWindow    TTextWindowState
-		fileSearchRec SearchRec
-		entryName     string
-		i             int16
+		textWindow TTextWindowState
+		entryName  string
+		i          int16
 	)
 	TextWindowInitState(&textWindow)
 	if extension == ".ZZT" {
@@ -700,23 +691,26 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 	}
 	GameWorldLoad = false
 	textWindow.Selectable = true
-	FindFirst("*"+extension, AnyFile, fileSearchRec)
-	for DosError == 0 {
-		entryName = Copy(fileSearchRec.Name, 1, Length(fileSearchRec.name)-4)
-		for i = 1; i <= WorldFileDescCount; i++ {
-			if entryName == WorldFileDescKeys[i-1] {
-				entryName = WorldFileDescValues[i-1]
+	filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
+		if err == nil {
+			if strings.EqualFold(filepath.Ext(path), extension) {
+				entryName = PathBasenameWithoutExt(path)
+				for i = 1; i <= WorldFileDescCount; i++ {
+					if entryName == WorldFileDescKeys[i-1] {
+						entryName = WorldFileDescValues[i-1]
+					}
+				}
+				TextWindowAppend(&textWindow, entryName)
 			}
 		}
-		TextWindowAppend(&textWindow, entryName)
-		FindNext(fileSearchRec)
-	}
+		return err
+	})
 	TextWindowAppend(&textWindow, "Exit")
 	TextWindowDrawOpen(&textWindow)
 	TextWindowSelect(&textWindow, false, false)
 	TextWindowDrawClose(&textWindow)
 	if textWindow.LinePos < textWindow.LineCount && !TextWindowRejected {
-		entryName = *textWindow.Lines[textWindow.LinePos-1]
+		entryName = textWindow.Lines[textWindow.LinePos-1]
 		if Pos(' ', entryName) != 0 {
 			entryName = Copy(entryName, 1, Pos(' ', entryName)-1)
 		}
@@ -730,39 +724,39 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 	var (
 		dataStr string
-		dataPtr *uintptr
+		dataPtr io.Reader
 		dataChr byte
 		i       int16
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	TextWindowInitState(state)
 	dataStr = ""
-	dataPtr = stat.Data
+	dataPtr = bytes.NewReader(*stat.Data)
 	for i = 0; i <= stat.DataLen; i++ {
-		Move(*dataPtr, dataChr, 1)
+		ReadPByte(dataPtr, &dataChr)
 		if dataChr == KEY_ENTER {
 			TextWindowAppend(state, dataStr)
 			dataStr = ""
 		} else {
 			dataStr += string([]byte{dataChr})
 		}
-		AdvancePointer(&dataPtr, 1)
 	}
 }
 
 func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
 	if Board.StatCount < MAX_STAT {
 		Board.StatCount++
-		Board.Stats[Board.StatCount] = template
-		stat := &Board.Stats[Board.StatCount]
+		*Board.Stats(Board.StatCount) = template
+		stat := Board.Stats(Board.StatCount)
 		stat.X = byte(tx)
 		stat.Y = byte(ty)
 		stat.Cycle = tcycle
 		stat.Under = Board.Tiles[tx][ty]
 		stat.DataPos = 0
 		if template.Data != nil {
-			GetMem(Board.Stats[Board.StatCount].Data, template.DataLen)
-			Move(*template.Data, *Board.Stats[Board.StatCount].Data, template.DataLen)
+			copiedData := make([]byte, len(*template.Data))
+			copy(copiedData, *template.Data)
+			Board.Stats(Board.StatCount).Data = &copiedData
 		}
 		if ElementDefs[Board.Tiles[tx][ty].Element].PlaceableOnTop {
 			Board.Tiles[tx][ty].Color = byte(color&0x0F + int16(Board.Tiles[tx][ty].Color)&0x70)
@@ -778,14 +772,14 @@ func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
 
 func RemoveStat(statId int16) {
 	var i int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if stat.DataLen != 0 {
 		for i = 1; i <= Board.StatCount; i++ {
-			if Board.Stats[i].Data == stat.Data && i != statId {
+			if Board.Stats(i).Data == stat.Data && i != statId {
 				goto StatDataInUse
 			}
 		}
-		FreeMem(stat.Data, stat.DataLen)
+		stat.Data = nil
 	}
 StatDataInUse:
 	if statId < CurrentStatTicked {
@@ -797,23 +791,23 @@ StatDataInUse:
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
 	}
 	for i = 1; i <= Board.StatCount; i++ {
-		if Board.Stats[i].Follower >= statId {
-			if Board.Stats[i].Follower == statId {
-				Board.Stats[i].Follower = -1
+		if Board.Stats(i).Follower >= statId {
+			if Board.Stats(i).Follower == statId {
+				Board.Stats(i).Follower = -1
 			} else {
-				Board.Stats[i].Follower--
+				Board.Stats(i).Follower--
 			}
 		}
-		if Board.Stats[i].Leader >= statId {
-			if Board.Stats[i].Leader == statId {
-				Board.Stats[i].Leader = -1
+		if Board.Stats(i).Leader >= statId {
+			if Board.Stats(i).Leader == statId {
+				Board.Stats(i).Leader = -1
 			} else {
-				Board.Stats[i].Leader--
+				Board.Stats(i).Leader--
 			}
 		}
 	}
 	for i = statId + 1; i <= Board.StatCount; i++ {
-		Board.Stats[i-1] = Board.Stats[i]
+		*Board.Stats(i - 1) = *Board.Stats(i)
 	}
 	Board.StatCount--
 }
@@ -823,7 +817,7 @@ func GetStatIdAt(x, y int16) (GetStatIdAt int16) {
 	i = -1
 	for {
 		i++
-		if int16(Board.Stats[i].X) == x && int16(Board.Stats[i].Y) == y || i > Board.StatCount {
+		if int16(Board.Stats(i).X) == x && int16(Board.Stats(i).Y) == y || i > Board.StatCount {
 			break
 		}
 	}
@@ -863,12 +857,10 @@ func MoveStat(statId int16, newX, newY int16) {
 		iUnder     TTile
 		ix, iy     int16
 		oldX, oldY int16
-		oldBgColor int16
 	)
-	stat := &Board.Stats[statId]
-	oldBgColor = int16(Board.Tiles[newX][newY].Color) & 0xF0
-	iUnder = Board.Stats[statId].Under
-	Board.Stats[statId].Under = Board.Tiles[newX][newY]
+	stat := Board.Stats(statId)
+	iUnder = Board.Stats(statId).Under
+	Board.Stats(statId).Under = Board.Tiles[newX][newY]
 	if Board.Tiles[stat.X][stat.Y].Element == E_PLAYER {
 		Board.Tiles[newX][newY].Color = Board.Tiles[stat.X][stat.Y].Color
 	} else if Board.Tiles[newX][newY].Element == E_EMPTY {
@@ -994,7 +986,7 @@ func GameUpdateSidebar() {
 			VideoWriteText(65, 15, 0x1F, " Be noisy")
 		}
 		if DebugEnabled {
-			numStr = Str(MemAvail)
+			numStr = Str(platform.MemAvail())
 			VideoWriteText(69, 4, 0x1E, "m"+numStr+" ")
 		}
 	}
@@ -1007,14 +999,14 @@ func DisplayMessage(ticks int16, message string) {
 	}
 	if Length(message) != 0 {
 		AddStat(0, 0, E_MESSAGE_TIMER, 0, 1, StatTemplateDefault)
-		Board.Stats[Board.StatCount].P2 = byte(ticks / (TickTimeDuration + 1))
+		Board.Stats(Board.StatCount).P2 = byte(ticks / (TickTimeDuration + 1))
 		Board.Info.Message = message
 	}
 }
 
 func DamageStat(attackerStatId int16) {
 	var oldX, oldY int16
-	stat := &Board.Stats[attackerStatId]
+	stat := Board.Stats(attackerStatId)
 	if attackerStatId == 0 {
 		if World.Info.Health > 0 {
 			World.Info.Health -= 10
@@ -1074,7 +1066,7 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 		CurrentStatTicked--
 	}
 	if Board.Tiles[x][y].Element == E_PLAYER && World.Info.EnergizerTicks > 0 {
-		World.Info.Score = ElementDefs[Board.Tiles[Board.Stats[attackerStatId].X][Board.Stats[attackerStatId].Y].Element].ScoreValue + World.Info.Score
+		World.Info.Score = ElementDefs[Board.Tiles[Board.Stats(attackerStatId).X][Board.Stats(attackerStatId).Y].Element].ScoreValue + World.Info.Score
 		GameUpdateSidebar()
 	} else {
 		BoardDamageTile(x, y)
@@ -1085,7 +1077,7 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 func BoardShoot(element byte, tx, ty, deltaX, deltaY int16, source int16) (BoardShoot bool) {
 	if ElementDefs[Board.Tiles[tx+deltaX][ty+deltaY].Element].Walkable || Board.Tiles[tx+deltaX][ty+deltaY].Element == E_WATER {
 		AddStat(tx+deltaX, ty+deltaY, element, int16(ElementDefs[element].Color), 1, StatTemplateDefault)
-		stat := &Board.Stats[Board.StatCount]
+		stat := Board.Stats(Board.StatCount)
 		stat.P1 = byte(source)
 		stat.StepX = deltaX
 		stat.StepY = deltaY
@@ -1114,11 +1106,11 @@ func CalcDirectionRnd(deltaX, deltaY *int16) {
 func CalcDirectionSeek(x, y int16, deltaX, deltaY *int16) {
 	*deltaX = 0
 	*deltaY = 0
-	if Random(2) < 1 || int16(Board.Stats[0].Y) == y {
-		*deltaX = Signum(int16(Board.Stats[0].X) - x)
+	if Random(2) < 1 || int16(Board.Stats(0).Y) == y {
+		*deltaX = Signum(int16(Board.Stats(0).X) - x)
 	}
 	if *deltaX == 0 {
-		*deltaY = Signum(int16(Board.Stats[0].Y) - y)
+		*deltaY = Signum(int16(Board.Stats(0).Y) - y)
 	}
 	if World.Info.EnergizerTicks > 0 {
 		*deltaX = -*deltaX
@@ -1132,8 +1124,8 @@ func TransitionDrawBoardChange() {
 }
 
 func BoardEnter() {
-	Board.Info.StartPlayerX = Board.Stats[0].X
-	Board.Info.StartPlayerY = Board.Stats[0].Y
+	Board.Info.StartPlayerX = Board.Stats(0).X
+	Board.Info.StartPlayerY = Board.Stats(0).Y
 	if Board.Info.IsDark && MessageHintTorchNotShown {
 		DisplayMessage(200, "Room is dark - you need to light a torch!")
 		MessageHintTorchNotShown = false
@@ -1144,14 +1136,14 @@ func BoardEnter() {
 
 func BoardPassageTeleport(x, y int16) {
 	var (
-		oldBoard   int16
+		// oldBoard   int16
 		col        byte
 		ix, iy     int16
 		newX, newY int16
 	)
 	col = Board.Tiles[x][y].Color
-	oldBoard = World.Info.CurrentBoard
-	BoardChange(int16(Board.Stats[GetStatIdAt(x, y)].P3))
+	// oldBoard = World.Info.CurrentBoard
+	BoardChange(int16(Board.Stats(GetStatIdAt(x, y)).P3))
 	newX = 0
 	for ix = 1; ix <= BOARD_WIDTH; ix++ {
 		for iy = 1; iy <= BOARD_HEIGHT; iy++ {
@@ -1161,11 +1153,11 @@ func BoardPassageTeleport(x, y int16) {
 			}
 		}
 	}
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element = E_EMPTY
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Color = 0
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_EMPTY
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = 0
 	if newX != 0 {
-		Board.Stats[0].X = byte(newX)
-		Board.Stats[0].Y = byte(newY)
+		Board.Stats(0).X = byte(newX)
+		Board.Stats(0).Y = byte(newY)
 	}
 	GamePaused = true
 	SoundQueue(4, "0\x014\x017\x011\x015\x018\x012\x016\x019\x013\x017\x01:\x014\x018\x01@\x01")
@@ -1183,9 +1175,7 @@ func GameDebugPrompt() {
 	SidebarClearLine(4)
 	SidebarClearLine(5)
 	PromptString(63, 5, 0x1E, 0x0F, 11, PROMPT_ANY, &input)
-	for i = 1; i <= Length(input); i++ {
-		input[i-1] = string([]byte{UpCase(input[i-1])})
-	}
+	input = strings.ToUpper(input)
 	toggle = true
 	if input[0] == '+' || input[0] == '-' {
 		if input[0] == '-' {
@@ -1218,9 +1208,9 @@ func GameDebugPrompt() {
 		TransitionDrawToBoard()
 	} else if input == "ZAP" {
 		for i = 0; i <= 3; i++ {
-			BoardDamageTile(int16(Board.Stats[0].X)+NeighborDeltaX[i], int16(Board.Stats[0].Y)+NeighborDeltaY[i])
-			Board.Tiles[int16(Board.Stats[0].X)+NeighborDeltaX[i]][int16(Board.Stats[0].Y)+NeighborDeltaY[i]].Element = E_EMPTY
-			BoardDrawTile(int16(Board.Stats[0].X)+NeighborDeltaX[i], int16(Board.Stats[0].Y)+NeighborDeltaY[i])
+			BoardDamageTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
+			Board.Tiles[int16(Board.Stats(0).X)+NeighborDeltaX[i]][int16(Board.Stats(0).Y)+NeighborDeltaY[i]].Element = E_EMPTY
+			BoardDrawTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
 		}
 	}
 
@@ -1317,8 +1307,8 @@ func GamePlayLoop(boardChanged bool) {
 		BoardChange(0)
 		JustStarted = false
 	}
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element = byte(GameStateElement)
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Color = ElementDefs[GameStateElement].Color
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = byte(GameStateElement)
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[GameStateElement].Color
 	if GameStateElement == E_MONITOR {
 		DisplayMessage(0, "")
 		VideoWriteText(62, 5, 0x1B, "Pick a command:")
@@ -1337,12 +1327,12 @@ func GamePlayLoop(boardChanged bool) {
 				pauseBlink = !pauseBlink
 			}
 			if pauseBlink {
-				VideoWriteText(int16(Board.Stats[0].X)-1, int16(Board.Stats[0].Y)-1, ElementDefs[E_PLAYER].Color, string([]byte{ElementDefs[E_PLAYER].Character}))
+				VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, ElementDefs[E_PLAYER].Color, string([]byte{ElementDefs[E_PLAYER].Character}))
 			} else {
-				if Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element == E_PLAYER {
-					VideoWriteText(int16(Board.Stats[0].X)-1, int16(Board.Stats[0].Y)-1, 0x0F, " ")
+				if Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element == E_PLAYER {
+					VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, 0x0F, " ")
 				} else {
-					BoardDrawTile(int16(Board.Stats[0].X), int16(Board.Stats[0].Y))
+					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
 				}
 			}
 			VideoWriteText(64, 5, 0x1F, "Pausing...")
@@ -1351,20 +1341,20 @@ func GamePlayLoop(boardChanged bool) {
 				GamePromptEndPlay()
 			}
 			if InputDeltaX != 0 || InputDeltaY != 0 {
-				ElementDefs[Board.Tiles[int16(Board.Stats[0].X)+InputDeltaX][int16(Board.Stats[0].Y)+InputDeltaY].Element].TouchProc(int16(Board.Stats[0].X)+InputDeltaX, int16(Board.Stats[0].Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
+				ElementDefs[Board.Tiles[int16(Board.Stats(0).X)+InputDeltaX][int16(Board.Stats(0).Y)+InputDeltaY].Element].TouchProc(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
 			}
-			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles[int16(Board.Stats[0].X)+InputDeltaX][int16(Board.Stats[0].Y)+InputDeltaY].Element].Walkable {
-				if Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element == E_PLAYER {
-					MoveStat(0, int16(Board.Stats[0].X)+InputDeltaX, int16(Board.Stats[0].Y)+InputDeltaY)
+			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles[int16(Board.Stats(0).X)+InputDeltaX][int16(Board.Stats(0).Y)+InputDeltaY].Element].Walkable {
+				if Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element == E_PLAYER {
+					MoveStat(0, int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY)
 				} else {
-					BoardDrawTile(int16(Board.Stats[0].X), int16(Board.Stats[0].Y))
-					Board.Stats[0].X += byte(InputDeltaX)
-					Board.Stats[0].Y += byte(InputDeltaY)
-					Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element = E_PLAYER
-					Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Color = ElementDefs[E_PLAYER].Color
-					BoardDrawTile(int16(Board.Stats[0].X), int16(Board.Stats[0].Y))
-					DrawPlayerSurroundings(int16(Board.Stats[0].X), int16(Board.Stats[0].Y), 0)
-					DrawPlayerSurroundings(int16(Board.Stats[0].X)-InputDeltaX, int16(Board.Stats[0].Y)-InputDeltaY, 0)
+					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
+					Board.Stats(0).X += byte(InputDeltaX)
+					Board.Stats(0).Y += byte(InputDeltaY)
+					Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
+					Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
+					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
+					DrawPlayerSurroundings(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), 0)
+					DrawPlayerSurroundings(int16(Board.Stats(0).X)-InputDeltaX, int16(Board.Stats(0).Y)-InputDeltaY, 0)
 				}
 				GamePaused = false
 				SidebarClearLine(5)
@@ -1374,7 +1364,7 @@ func GamePlayLoop(boardChanged bool) {
 			}
 		} else {
 			if CurrentStatTicked <= Board.StatCount {
-				stat := &Board.Stats[CurrentStatTicked]
+				stat := Board.Stats(CurrentStatTicked)
 				if stat.Cycle != 0 && CurrentTick%stat.Cycle == CurrentStatTicked%stat.Cycle {
 					ElementDefs[Board.Tiles[stat.X][stat.Y].Element].TickProc(CurrentStatTicked)
 				}
@@ -1404,8 +1394,8 @@ func GamePlayLoop(boardChanged bool) {
 		SidebarClearLine(5)
 	}
 
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Element = E_PLAYER
-	Board.Tiles[Board.Stats[0].X][Board.Stats[0].Y].Color = ElementDefs[E_PLAYER].Color
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
+	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
 	SoundBlockQueueing = false
 }
 
@@ -1487,12 +1477,12 @@ func GameTitleLoop() {
 func GamePrintRegisterMessage() {
 	var (
 		s         string
-		f         *File
+		sLen      byte
+		sData     []byte
 		i         int16
-		ix, iy    int16
+		iy        int16
 		color     int16
 		isReading bool
-		strPtr    *uintptr
 	)
 	SetCBreak(false)
 	s = "END" + Chr(byte(49+Random(4))) + ".MSG"
@@ -1500,18 +1490,21 @@ func GamePrintRegisterMessage() {
 	color = 0x0F
 	for i = 1; i <= ResourceDataHeader.EntryCount; i++ {
 		if ResourceDataHeader.Name[i-1] == s {
-			Assign(f, ResourceDataFileName)
-			Reset(f, 1)
-			Seek(f, ResourceDataHeader.FileOffset[i-1])
+			f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+			if err != nil {
+				return
+			}
+			defer f.Close()
+			f.Seek(int64(ResourceDataHeader.FileOffset[i-1]), os.SEEK_SET)
 			isReading = true
-			for IOResult() == 0 && isReading {
-				BlockRead(f, s, 1)
-				strPtr = Ptr(Seg(s), Ofs(s)+1)
-				if Length(s) == 0 {
+			for err != nil && isReading {
+				ReadPByte(f, &sLen)
+				if sLen == 0 {
 					color--
 				} else {
-					BlockRead(f, *strPtr, Length(s))
-					if s != "@" {
+					sData = make([]byte, sLen)
+					f.Read(sData)
+					if len(sData) != 1 || sData[0] != '@' {
 						VideoWriteText(0, iy, byte(color), s)
 					} else {
 						isReading = false
@@ -1519,7 +1512,6 @@ func GamePrintRegisterMessage() {
 				}
 				iy++
 			}
-			Close(f)
 			VideoWriteText(28, 24, 0x1F, "Press any key to exit...")
 			TextColor(LightGray)
 			for {

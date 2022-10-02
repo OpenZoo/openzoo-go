@@ -1,6 +1,6 @@
 package main // unit: Editor
 
-// interface uses: GameVars, TxtWind
+import "bytes" // interface uses: GameVars, TxtWind
 
 // implementation uses: Dos, Crt, Video, Sounds, Input, Elements, Oop, Game
 
@@ -19,7 +19,7 @@ func EditorAppendBoard() {
 		BoardClose()
 		World.BoardCount++
 		World.Info.CurrentBoard = World.BoardCount
-		World.BoardLen[World.BoardCount] = 0
+		World.BoardData[World.BoardCount] = nil
 		BoardCreate()
 		TransitionDrawToBoard()
 		for {
@@ -43,7 +43,6 @@ func EditorLoop() {
 		cursorPattern, cursorColor int16
 		i, iElem                   int16
 		canModify                  bool
-		unk1                       [50]byte
 		copiedStat                 TStat
 		copiedHasStat              bool
 		copiedTile                 TTile
@@ -97,7 +96,7 @@ func EditorLoop() {
 		if ElementDefs[copiedTile.Element].HasDrawProc {
 			ElementDefs[copiedTile.Element].DrawProc(copiedX, copiedY, &copiedChr)
 		} else {
-			copiedChr = Ord(ElementDefs[copiedTile.Element].Character)
+			copiedChr = ElementDefs[copiedTile.Element].Character
 		}
 		VideoWriteText(62+EditorPatternCount, 22, copiedTile.Color, Chr(copiedChr))
 		VideoWriteText(61, 24, 0x1F, " Mode:")
@@ -130,10 +129,8 @@ func EditorLoop() {
 	}
 
 	EditorDrawRefresh := func() {
-		var boardNumStr string
 		BoardDrawBorder()
 		EditorDrawSidebar()
-		boardNumStr = Str(World.Info.CurrentBoard)
 		TransitionDrawToBoard()
 		if Length(Board.Name) != 0 {
 			VideoWriteText((59-Length(Board.Name))/2, 0, 0x70, " "+Board.Name+" ")
@@ -222,26 +219,20 @@ func EditorLoop() {
 		state.LineCount = 9
 		state.Selectable = true
 		exitRequested = false
-		for i = 1; i <= state.LineCount; i++ {
-			New(state.Lines[i-1])
-		}
 		for {
 			state.Selectable = true
 			state.LineCount = 10
-			for i = 1; i <= state.LineCount; i++ {
-				New(state.Lines[i-1])
-			}
-			*state.Lines[0] = "         Title: " + Board.Name
+			state.Lines[0] = "         Title: " + Board.Name
 			numStr = Str(int16(Board.Info.MaxShots))
-			*state.Lines[1] = "      Can fire: " + numStr + " shots."
-			*state.Lines[2] = " Board is dark: " + BoolToString(Board.Info.IsDark)
+			state.Lines[1] = "      Can fire: " + numStr + " shots."
+			state.Lines[2] = " Board is dark: " + BoolToString(Board.Info.IsDark)
 			for i = 4; i <= 7; i++ {
-				*state.Lines[i-1] = NeighborBoardStrs[i-4] + ": " + EditorGetBoardName(int16(Board.Info.NeighborBoards[i-4]), true)
+				state.Lines[i-1] = NeighborBoardStrs[i-4] + ": " + EditorGetBoardName(int16(Board.Info.NeighborBoards[i-4]), true)
 			}
-			*state.Lines[7] = "Re-enter when zapped: " + BoolToString(Board.Info.ReenterWhenZapped)
+			state.Lines[7] = "Re-enter when zapped: " + BoolToString(Board.Info.ReenterWhenZapped)
 			numStr = Str(Board.Info.TimeLimitSec)
-			*state.Lines[8] = "  Time limit, 0=None: " + numStr + " sec."
-			*state.Lines[9] = "          Quit!"
+			state.Lines[8] = "  Time limit, 0=None: " + numStr + " sec."
+			state.Lines[9] = "          Quit!"
 			TextWindowSelect(&state, false, false)
 			if InputKeyPressed == KEY_ENTER && state.LinePos >= 1 && state.LinePos <= 8 {
 				wasModified = true
@@ -256,7 +247,7 @@ func EditorLoop() {
 					numStr = Str(int16(Board.Info.MaxShots))
 					SidebarPromptString("Maximum shots?", "", &numStr, PROMPT_NUMERIC)
 					if Length(numStr) != 0 {
-						Board.Info.MaxShots = byte(Val(numStr, &i))
+						Board.Info.MaxShots = byte(Val(numStr))
 					}
 					EditorDrawSidebar()
 				case 3:
@@ -273,7 +264,7 @@ func EditorLoop() {
 					numStr = Str(Board.Info.TimeLimitSec)
 					SidebarPromptString("Time limit?", " Sec", &numStr, PROMPT_NUMERIC)
 					if Length(numStr) != 0 {
-						Board.Info.TimeLimitSec = Val(numStr, &i)
+						Board.Info.TimeLimitSec = int16(Val(numStr))
 					}
 					EditorDrawSidebar()
 				case 10:
@@ -293,37 +284,23 @@ func EditorLoop() {
 
 	EditorEditStatText := func(statId int16, prompt string) {
 		var (
-			state        TTextWindowState
-			iLine, iChar int16
-			unk1         [52]byte
-			dataChar     byte
-			dataPtr      *uintptr
+			state TTextWindowState
+			iLine int16
 		)
-		stat := &Board.Stats[statId]
+		stat := Board.Stats(statId)
 		state.Title = prompt
 		TextWindowDrawOpen(&state)
 		state.Selectable = false
 		CopyStatDataToTextWindow(statId, &state)
-		if stat.DataLen > 0 {
-			FreeMem(stat.Data, stat.DataLen)
-			stat.DataLen = 0
-		}
+		stat.DataLen = 0
 		EditorOpenEditTextWindow(&state)
+		data := make([]byte, 0)
 		for iLine = 1; iLine <= state.LineCount; iLine++ {
-			stat.DataLen += Length(*state.Lines[iLine-1]) + 1
+			data = append(data, state.Lines[iLine-1]...)
+			data = append(data, '\r')
 		}
-		GetMem(stat.Data, stat.DataLen)
-		dataPtr = stat.Data
-		for iLine = 1; iLine <= state.LineCount; iLine++ {
-			for iChar = 1; iChar <= Length(*state.Lines[iLine-1]); iChar++ {
-				dataChar = byte(*state.Lines[iLine-1][iChar-1])
-				Move(dataChar, *dataPtr, 1)
-				AdvancePointer(&dataPtr, 1)
-			}
-			dataChar = '\r'
-			Move(dataChar, *dataPtr, 1)
-			AdvancePointer(&dataPtr, 1)
-		}
+		stat.Data = &data
+		stat.DataLen = int16(len(data))
 		TextWindowFree(&state)
 		TextWindowDrawClose(&state)
 		InputKeyPressed = '\x00'
@@ -339,7 +316,7 @@ func EditorLoop() {
 			promptByte    byte
 		)
 		EditorEditStatSettings := func(selected bool) {
-			stat := &Board.Stats[statId]
+			stat := Board.Stats(statId)
 			InputKeyPressed = '\x00'
 			iy = 9
 			if Length(ElementDefs[element].Param1Name) != 0 {
@@ -412,7 +389,7 @@ func EditorLoop() {
 			}
 		}
 
-		stat := &Board.Stats[statId]
+		stat := Board.Stats(statId)
 		SidebarClear()
 		element = Board.Tiles[stat.X][stat.Y].Element
 		wasModified = true
@@ -428,7 +405,7 @@ func EditorLoop() {
 		EditorEditStatSettings(true)
 		if InputKeyPressed != KEY_ESCAPE {
 			copiedHasStat = true
-			copiedStat = Board.Stats[statId]
+			copiedStat = *Board.Stats(statId)
 			copiedTile = Board.Tiles[stat.X][stat.Y]
 			copiedX = int16(stat.X)
 			copiedY = int16(stat.Y)
@@ -436,63 +413,62 @@ func EditorLoop() {
 	}
 
 	EditorTransferBoard := func() {
-		var (
-			i byte
-			f *File
-		)
-		i = 1
-		SidebarPromptChoice(true, 3, "Transfer board:", "Import Export", &i)
-		if InputKeyPressed != KEY_ESCAPE {
-			if i == 0 {
-				SidebarPromptString("Import board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
-				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-					Assign(f, SavedBoardFileName+".BRD")
-					Reset(f, 1)
-					if DisplayIOError() {
-						goto TransferEnd
+		// stub
+		/* var (
+				i byte
+				f *File
+			)
+			i = 1
+			SidebarPromptChoice(true, 3, "Transfer board:", "Import Export", &i)
+			if InputKeyPressed != KEY_ESCAPE {
+				if i == 0 {
+					SidebarPromptString("Import board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
+					if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
+						Assign(f, SavedBoardFileName+".BRD")
+						Reset(f, 1)
+						if DisplayIOError() {
+							goto TransferEnd
+						}
+						BoardClose()
+						FreeMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
+						BlockRead(f, World.BoardLen[World.Info.CurrentBoard], 2)
+						if !DisplayIOError() {
+							GetMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
+							BlockRead(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
+						}
+						if DisplayIOError() {
+							World.BoardLen[World.Info.CurrentBoard] = 0
+							BoardCreate()
+							EditorDrawRefresh()
+						} else {
+							BoardOpen(World.Info.CurrentBoard)
+							EditorDrawRefresh()
+							for i = 0; i <= 3; i++ {
+								Board.Info.NeighborBoards[i] = 0
+							}
+						}
 					}
-					BoardClose()
-					FreeMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-					BlockRead(f, World.BoardLen[World.Info.CurrentBoard], 2)
-					if !DisplayIOError() {
-						GetMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-						BlockRead(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-					}
-					if DisplayIOError() {
-						World.BoardLen[World.Info.CurrentBoard] = 0
-						BoardCreate()
-						EditorDrawRefresh()
-					} else {
+				} else if i == 1 {
+					SidebarPromptString("Export board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
+					if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
+						Assign(f, SavedBoardFileName+".BRD")
+						Rewrite(f, 1)
+						if DisplayIOError() {
+							goto TransferEnd
+						}
+						BoardClose()
+						BlockWrite(f, World.BoardLen[World.Info.CurrentBoard], 2)
+						BlockWrite(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
 						BoardOpen(World.Info.CurrentBoard)
-						EditorDrawRefresh()
-						for i = 0; i <= 3; i++ {
-							Board.Info.NeighborBoards[i] = 0
+						if DisplayIOError() {
+						} else {
+							Close(f)
 						}
 					}
 				}
-			} else if i == 1 {
-				SidebarPromptString("Export board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
-				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-					Assign(f, SavedBoardFileName+".BRD")
-					Rewrite(f, 1)
-					if DisplayIOError() {
-						goto TransferEnd
-					}
-					BoardClose()
-					BlockWrite(f, World.BoardLen[World.Info.CurrentBoard], 2)
-					BlockWrite(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-					BoardOpen(World.Info.CurrentBoard)
-					if DisplayIOError() {
-					} else {
-						Close(f)
-					}
-				}
 			}
-
-		}
-	TransferEnd:
-		EditorDrawSidebar()
-
+		TransferEnd:
+			EditorDrawSidebar() */
 	}
 
 	EditorFloodFill := func(x, y int16, from TTile) {
@@ -570,7 +546,7 @@ func EditorLoop() {
 			if InputKeyPressed >= ' ' && InputKeyPressed < '\x80' {
 				if EditorPrepareModifyTile(cursorX, cursorY) {
 					Board.Tiles[cursorX][cursorY].Element = byte(cursorColor - 9 + E_TEXT_MIN)
-					Board.Tiles[cursorX][cursorY].Color = Ord(InputKeyPressed)
+					Board.Tiles[cursorX][cursorY].Color = byte(InputKeyPressed)
 					EditorDrawTileAndNeighborsAt(cursorX, cursorY)
 					InputDeltaX = 1
 					InputDeltaY = 0
@@ -729,7 +705,7 @@ func EditorLoop() {
 						VideoWriteText(65, i, 0x1E, ElementDefs[iElem].CategoryName)
 						i++
 					}
-					VideoWriteText(61, i, byte(i%2<<6+0x30), " "+ElementDefs[iElem].EditorShortcut+' ')
+					VideoWriteText(61, i, byte(i%2<<6+0x30), " "+string(rune(ElementDefs[iElem].EditorShortcut))+" ")
 					VideoWriteText(65, i, 0x1F, ElementDefs[iElem].Name)
 					if ElementDefs[iElem].Color == COLOR_CHOICE_ON_BLACK {
 						elemMenuColor = cursorColor%0x10 + 0x10
@@ -749,7 +725,7 @@ func EditorLoop() {
 			}
 			InputReadWaitKey()
 			for iElem = 1; iElem <= MAX_ELEMENT; iElem++ {
-				if ElementDefs[iElem].EditorCategory == selectedCategory && ElementDefs[iElem].EditorShortcut == UpCase(InputKeyPressed) {
+				if ElementDefs[iElem].EditorCategory == selectedCategory && ElementDefs[iElem].EditorShortcut == byte(UpCase(InputKeyPressed)) {
 					if iElem == E_PLAYER {
 						if EditorPrepareModifyTile(cursorX, cursorY) {
 							MoveStat(0, cursorX, cursorY)
@@ -772,7 +748,7 @@ func EditorLoop() {
 						} else {
 							if EditorPrepareModifyStatAtCursor() {
 								AddStat(cursorX, cursorY, byte(iElem), elemMenuColor, ElementDefs[iElem].Cycle, StatTemplateDefault)
-								stat := &Board.Stats[Board.StatCount]
+								stat := Board.Stats(Board.StatCount)
 								if Length(ElementDefs[iElem].Param1Name) != 0 {
 									stat.P1 = World.EditorStatSettings[iElem].P1
 								}
@@ -839,17 +815,16 @@ func EditorLoop() {
 }
 
 func HighScoresLoad() {
-	var (
-		f *File
-		i int16
-	)
-	Assign(f, World.Info.Name+".HI")
-	Reset(f)
-	if IOResult() == 0 {
-		Read(f, HighScoreList)
-	}
-	Close(f)
-	if IOResult() != 0 {
+	// stub
+	var i int16
+	/*
+		Assign(f, World.Info.Name+".HI")
+		Reset(f)
+		if IOResult() == 0 {
+			Read(f, HighScoreList)
+		}
+		Close(f)
+		if IOResult() != 0 */{
 		for i = 1; i <= HIGH_SCORE_COUNT; i++ {
 			HighScoreList[i-1].Name = ""
 			HighScoreList[i-1].Score = -1
@@ -858,14 +833,15 @@ func HighScoresLoad() {
 }
 
 func HighScoresSave() {
-	var f *File
+	// stub
+	/* var f *File
 	Assign(f, World.Info.Name+".HI")
 	Rewrite(f)
 	Write(f, HighScoreList)
 	Close(f)
 	if DisplayIOError() {
 	} else {
-	}
+	} */
 }
 
 func HighScoresInitTextWindow(state *TTextWindowState) {
@@ -965,7 +941,6 @@ func HighScoresAdd(score int16) {
 
 func EditorGetBoardName(boardId int16, titleScreenIsNone bool) (EditorGetBoardName string) {
 	var (
-		boardData  *uintptr
 		copiedName string
 	)
 	if boardId == 0 && titleScreenIsNone {
@@ -973,8 +948,9 @@ func EditorGetBoardName(boardId int16, titleScreenIsNone bool) (EditorGetBoardNa
 	} else if boardId == World.Info.CurrentBoard {
 		EditorGetBoardName = Board.Name
 	} else {
-		boardData = World.BoardData[boardId]
-		Move(*boardData, copiedName, SizeOf(copiedName))
+		boardData := World.BoardData[boardId]
+		r := bytes.NewReader(boardData)
+		ReadPString(r, &copiedName, BOARD_NAME_LENGTH)
 		EditorGetBoardName = copiedName
 	}
 
@@ -983,9 +959,7 @@ func EditorGetBoardName(boardId int16, titleScreenIsNone bool) (EditorGetBoardNa
 
 func EditorSelectBoard(title string, currentBoard int16, titleScreenIsNone bool) (EditorSelectBoard int16) {
 	var (
-		unk1       string
 		i          int16
-		unk2       int16
 		textWindow TTextWindowState
 	)
 	textWindow.Title = title

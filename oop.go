@@ -5,16 +5,16 @@ package main // unit: Oop
 // implementation uses: Sounds, TxtWind, Game, Elements
 
 func OopError(statId int16, message string) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	DisplayMessage(200, "ERR: "+message)
 	SoundQueue(5, "P\n")
 	stat.DataPos = -1
 }
 
 func OopReadChar(statId int16, position *int16) {
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if *position >= 0 && *position < stat.DataLen {
-		Move(*Ptr(Seg(*stat.Data), Ofs(*stat.Data)+*position), OopChar, 1)
+		OopChar = (*stat.Data)[*position]
 		*position++
 	} else {
 		OopChar = '\x00'
@@ -44,8 +44,7 @@ func OopReadWord(statId int16, position *int16) {
 
 func OopReadValue(statId int16, position *int16) {
 	var (
-		s    string
-		code int16
+		s string
 	)
 	s = ""
 	for {
@@ -64,7 +63,7 @@ func OopReadValue(statId int16, position *int16) {
 		*position--
 	}
 	if Length(s) != 0 {
-		OopValue = Val(s, &code)
+		OopValue = int16(Val(s))
 	} else {
 		OopValue = -1
 	}
@@ -79,9 +78,9 @@ func OopSkipLine(statId int16, position *int16) {
 	}
 }
 
-func OopParseDirection(statId int16, position *int16, dx, dy *int16) (OopParseDirection bool) {
-	stat := &Board.Stats[statId]
-	OopParseDirection = true
+func OopParseDirection(statId int16, position *int16, dx, dy *int16) (result bool) {
+	stat := Board.Stats(statId)
+	result = true
 	if OopWord == "N" || OopWord == "NORTH" {
 		*dx = 0
 		*dy = -1
@@ -116,15 +115,15 @@ func OopParseDirection(statId int16, position *int16, dx, dy *int16) (OopParseDi
 		}
 	} else if OopWord == "CW" {
 		OopReadWord(statId, position)
-		OopParseDirection = OopParseDirection(statId, position, dy, dx)
+		result = OopParseDirection(statId, position, dy, dx)
 		*dx = -*dx
 	} else if OopWord == "CCW" {
 		OopReadWord(statId, position)
-		OopParseDirection = OopParseDirection(statId, position, dy, dx)
+		result = OopParseDirection(statId, position, dy, dx)
 		*dy = -*dy
 	} else if OopWord == "RNDP" {
 		OopReadWord(statId, position)
-		OopParseDirection = OopParseDirection(statId, position, dy, dx)
+		result = OopParseDirection(statId, position, dy, dx)
 		if Random(2) == 0 {
 			*dx = -*dx
 		} else {
@@ -132,13 +131,13 @@ func OopParseDirection(statId int16, position *int16, dx, dy *int16) (OopParseDi
 		}
 	} else if OopWord == "OPP" {
 		OopReadWord(statId, position)
-		OopParseDirection = OopParseDirection(statId, position, dx, dy)
+		result = OopParseDirection(statId, position, dx, dy)
 		*dx = -*dx
 		*dy = -*dy
 	} else {
 		*dx = 0
 		*dy = 0
-		OopParseDirection = false
+		result = false
 	}
 
 	return
@@ -153,7 +152,7 @@ func OopReadDirection(statId int16, position *int16, dx, dy *int16) {
 
 func OopFindString(statId int16, s string) (OopFindString int16) {
 	var pos, wordPos, cmpPos int16
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	pos = 0
 	for pos <= stat.DataLen {
 		wordPos = 1
@@ -210,7 +209,7 @@ func OopIterateStat(statId int16, iStat *int16, lookup string) (OopIterateStat b
 		}
 	} else {
 		for *iStat <= Board.StatCount && !found {
-			if Board.Stats[*iStat].Data != nil {
+			if Board.Stats(*iStat).Data != nil {
 				pos = 0
 				OopReadChar(*iStat, &pos)
 				if OopChar == '@' {
@@ -233,7 +232,6 @@ func OopIterateStat(statId int16, iStat *int16, lookup string) (OopIterateStat b
 func OopFindLabel(statId int16, sendLabel string, iStat, iDataPos *int16, labelPrefix string) (OopFindLabel bool) {
 	var (
 		targetSplitPos int16
-		unk1           int16
 		targetLookup   string
 		objectMessage  string
 		foundStat      bool
@@ -250,9 +248,10 @@ func OopFindLabel(statId int16, sendLabel string, iStat, iDataPos *int16, labelP
 	} else {
 		targetLookup = Copy(sendLabel, 1, targetSplitPos-1)
 		objectMessage = Copy(sendLabel, targetSplitPos+1, Length(sendLabel)-targetSplitPos)
-	FindNextStat:
+	}
+FindNextStat:
+	if targetSplitPos > 0 {
 		foundStat = OopIterateStat(statId, iStat, targetLookup)
-
 	}
 	if foundStat {
 		if objectMessage == "RESTART" {
@@ -292,7 +291,6 @@ func WorldSetFlag(name string) {
 }
 
 func WorldClearFlag(name string) {
-	var i int16
 	if WorldGetFlagPosition(name) >= 0 {
 		World.Info.Flags[WorldGetFlagPosition(name)-1] = ""
 	}
@@ -308,7 +306,7 @@ func OopStringToWord(input string) (OopStringToWord string) {
 		if input[i-1] >= 'A' && input[i-1] <= 'Z' || input[i-1] >= '0' && input[i-1] <= '9' {
 			output += string([]byte{input[i-1]})
 		} else if input[i-1] >= 'a' && input[i-1] <= 'z' {
-			output += Chr(Ord(input[i-1]) - 0x20)
+			output += Chr(input[i-1] - 0x20)
 		}
 
 	}
@@ -405,40 +403,40 @@ func OopPlaceTile(x, y int16, tile *TTile) {
 	}
 }
 
-func OopCheckCondition(statId int16, position *int16) (OopCheckCondition bool) {
+func OopCheckCondition(statId int16, position *int16) (result bool) {
 	var (
 		deltaX, deltaY int16
 		tile           TTile
 		ix, iy         int16
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 	if OopWord == "NOT" {
 		OopReadWord(statId, position)
-		OopCheckCondition = !OopCheckCondition(statId, position)
+		result = !OopCheckCondition(statId, position)
 	} else if OopWord == "ALLIGNED" {
-		OopCheckCondition = stat.X == Board.Stats[0].X || stat.Y == Board.Stats[0].Y
+		result = stat.X == Board.Stats(0).X || stat.Y == Board.Stats(0).Y
 	} else if OopWord == "CONTACT" {
-		OopCheckCondition = Sqr(int16(stat.X)-int16(Board.Stats[0].X))+Sqr(int16(stat.Y)-int16(Board.Stats[0].Y)) == 1
+		result = Sqr(int16(stat.X)-int16(Board.Stats(0).X))+Sqr(int16(stat.Y)-int16(Board.Stats(0).Y)) == 1
 	} else if OopWord == "BLOCKED" {
 		OopReadDirection(statId, position, &deltaX, &deltaY)
-		OopCheckCondition = !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable
+		result = !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable
 	} else if OopWord == "ENERGIZED" {
-		OopCheckCondition = World.Info.EnergizerTicks > 0
+		result = World.Info.EnergizerTicks > 0
 	} else if OopWord == "ANY" {
 		if !OopParseTile(&statId, position, &tile) {
 			OopError(statId, "Bad object kind")
 		}
 		ix = 0
 		iy = 1
-		OopCheckCondition = FindTileOnBoard(&ix, &iy, tile)
+		result = FindTileOnBoard(&ix, &iy, tile)
 	} else {
-		OopCheckCondition = WorldGetFlagPosition(OopWord) >= 0
+		result = WorldGetFlagPosition(OopWord) >= 0
 	}
 
 	return
 }
 
-func OopReadLineToEnd(statId int16, position *int16) (OopReadLineToEnd string) {
+func OopReadLineToEnd(statId int16, position *int16) string {
 	var s string
 	s = ""
 	OopReadChar(statId, position)
@@ -446,8 +444,7 @@ func OopReadLineToEnd(statId int16, position *int16) (OopReadLineToEnd string) {
 		s += string([]byte{OopChar})
 		OopReadChar(statId, position)
 	}
-	OopReadLineToEnd = s
-	return
+	return s
 }
 
 func OopSend(statId int16, sendLabel string, ignoreLock bool) (OopSend bool) {
@@ -464,11 +461,11 @@ func OopSend(statId int16, sendLabel string, ignoreLock bool) (OopSend bool) {
 	OopSend = false
 	iStat = 0
 	for OopFindLabel(statId, sendLabel, &iStat, &iDataPos, "\r:") {
-		if Board.Stats[iStat].P2 == 0 || ignoreLock || statId == iStat && !respectSelfLock {
+		if Board.Stats(iStat).P2 == 0 || ignoreLock || statId == iStat && !respectSelfLock {
 			if iStat == statId {
 				OopSend = true
 			}
-			Board.Stats[iStat].DataPos = iDataPos
+			Board.Stats(iStat).DataPos = iDataPos
 		}
 	}
 	return
@@ -488,7 +485,6 @@ func OopExecute(statId int16, position *int16, name string) {
 		lastPosition      int16
 		repeatInsNextTick bool
 		lineFinished      bool
-		labelPtr          *uintptr
 		labelDataPos      int16
 		labelStatId       int16
 		counterPtr        *int16
@@ -498,7 +494,7 @@ func OopExecute(statId int16, position *int16, name string) {
 		argTile           TTile
 		argTile2          TTile
 	)
-	stat := &Board.Stats[statId]
+	stat := Board.Stats(statId)
 StartParsing:
 	TextWindowInitState(&textWindow)
 
@@ -663,18 +659,14 @@ StartParsing:
 					OopReadWord(statId, position)
 					labelStatId = 0
 					for OopFindLabel(statId, OopWord, &labelStatId, &labelDataPos, "\r:") {
-						labelPtr = Board.Stats[labelStatId].Data
-						AdvancePointer(&labelPtr, labelDataPos+1)
-						*labelPtr = '\''
+						(*(Board.Stats(labelStatId).Data))[labelDataPos+1] = '\''
 					}
 				} else if OopWord == "RESTORE" {
 					OopReadWord(statId, position)
 					labelStatId = 0
 					for OopFindLabel(statId, OopWord, &labelStatId, &labelDataPos, "\r'") {
 						for {
-							labelPtr = Board.Stats[labelStatId].Data
-							AdvancePointer(&labelPtr, labelDataPos+1)
-							*labelPtr = ':'
+							(*(Board.Stats(labelStatId).Data))[labelDataPos+1] = ':'
 							labelDataPos = OopFindString(labelStatId, "\r'"+OopWord+"\r")
 							if labelDataPos <= 0 {
 								break
@@ -751,9 +743,8 @@ StartParsing:
 					OopReadWord(statId, position)
 					bindStatId = 0
 					if OopIterateStat(statId, &bindStatId, OopWord) {
-						FreeMem(stat.Data, stat.DataLen)
-						stat.Data = Board.Stats[bindStatId].Data
-						stat.DataLen = Board.Stats[bindStatId].DataLen
+						stat.Data = Board.Stats(bindStatId).Data
+						stat.DataLen = Board.Stats(bindStatId).DataLen
 						*position = 0
 					}
 				} else {
@@ -778,7 +769,7 @@ StartParsing:
 		} else if OopChar == '\x00' {
 			endOfProgram = true
 		} else {
-			textLine = OopChar + OopReadLineToEnd(statId, position)
+			textLine = string(rune(OopChar)) + OopReadLineToEnd(statId, position)
 			TextWindowAppend(&textWindow, textLine)
 		}
 
@@ -812,7 +803,7 @@ StartParsing:
 			}
 		}
 	} else if textWindow.LineCount == 1 {
-		DisplayMessage(200, *textWindow.Lines[0])
+		DisplayMessage(200, textWindow.Lines[0])
 		TextWindowFree(&textWindow)
 	}
 

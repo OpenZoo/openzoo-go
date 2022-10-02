@@ -1,6 +1,12 @@
 package main // unit: TxtWind
 
-// interface uses: Video
+import (
+	"bufio"
+	"fmt"
+	"io"
+	"os"
+	"strings"
+) // interface uses: Video
 
 const (
 	MAX_TEXT_WINDOW_LINES   = 1024
@@ -13,11 +19,11 @@ type (
 		Selectable     bool
 		LineCount      int16
 		LinePos        int16
-		Lines          [MAX_TEXT_WINDOW_LINES]*string
+		Lines          [MAX_TEXT_WINDOW_LINES]string
 		Hyperlink      string
 		Title          string
 		LoadedFilename string
-		ScreenCopy     [25]string
+		ScreenCopy     [25][]byte
 	}
 	TResourceDataHeader struct {
 		EntryCount int16
@@ -43,18 +49,26 @@ var (
 	OrderPrintId                      *string
 )
 
+func ReadResourceDataHeader(r io.Reader, b *TResourceDataHeader) error {
+	if err := ReadPShort(r, &b.EntryCount); err != nil {
+		return err
+	}
+	for i := 0; i < MAX_RESOURCE_DATA_FILES; i++ {
+		if err := ReadPString(r, &b.Name[i], 50); err != nil {
+			return err
+		}
+	}
+	for i := 0; i < MAX_RESOURCE_DATA_FILES; i++ {
+		if err := ReadPLongint(r, &b.FileOffset[i]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // implementation uses: Crt, Input, Printer
 
 const TEXT_WINDOW_ANIM_SPEED = 25
-
-func UpCaseString(input string) (UpCaseString string) {
-	var i int16
-	for i = 1; i <= Length(input); i++ {
-		input[i-1] = string([]byte{UpCase(input[i-1])})
-	}
-	UpCaseString = input
-	return
-}
 
 func TextWindowInitState(state *TTextWindowState) {
 	state.LineCount = 0
@@ -68,7 +82,7 @@ func TextWindowDrawTitle(color int16, title string) {
 }
 
 func TextWindowDrawOpen(state *TTextWindowState) {
-	var ix, iy int16
+	var iy int16
 	for iy = 1; iy <= TextWindowHeight+1; iy++ {
 		VideoMove(TextWindowX, iy+TextWindowY-1, TextWindowWidth, &state.ScreenCopy[iy-1], false)
 	}
@@ -84,10 +98,7 @@ func TextWindowDrawOpen(state *TTextWindowState) {
 }
 
 func TextWindowDrawClose(state *TTextWindowState) {
-	var (
-		ix, iy     int16
-		unk1, unk2 int16
-	)
+	var iy int16
 	for iy = 0; iy <= TextWindowHeight/2; iy++ {
 		VideoWriteText(TextWindowX, TextWindowY+iy, 0x0F, TextWindowStrTop)
 		VideoWriteText(TextWindowX, TextWindowY+TextWindowHeight-iy, 0x0F, TextWindowStrBottom)
@@ -110,29 +121,29 @@ func TextWindowDrawLine(state *TTextWindowState, lpos int16, withoutFormatting, 
 	}
 	if lpos > 0 && lpos <= state.LineCount {
 		if withoutFormatting {
-			VideoWriteText(TextWindowX+4, lineY, 0x1E, *state.Lines[lpos-1])
+			VideoWriteText(TextWindowX+4, lineY, 0x1E, state.Lines[lpos-1])
 		} else {
 			textOffset = 1
 			textColor = 0x1E
 			textX = TextWindowX + 4
-			if Length(*state.Lines[lpos-1]) > 0 {
-				switch *state.Lines[lpos-1][0] {
+			if Length(state.Lines[lpos-1]) > 0 {
+				switch state.Lines[lpos-1][0] {
 				case '!':
-					textOffset = Pos(';', *state.Lines[lpos-1]) + 1
+					textOffset = Pos(';', state.Lines[lpos-1]) + 1
 					VideoWriteText(textX+2, lineY, 0x1D, "\x10")
 					textX += 5
 					textColor = 0x1F
 				case ':':
-					textOffset = Pos(';', *state.Lines[lpos-1]) + 1
+					textOffset = Pos(';', state.Lines[lpos-1]) + 1
 					textColor = 0x1F
 				case '$':
 					textOffset = 2
 					textColor = 0x1F
-					textX = textX - 4 + (TextWindowWidth-Length(*state.Lines[lpos-1]))/2
+					textX = textX - 4 + (TextWindowWidth-Length(state.Lines[lpos-1]))/2
 				}
 			}
 			if textOffset > 0 {
-				VideoWriteText(textX, lineY, byte(textColor), Copy(*state.Lines[lpos-1], textOffset, Length(*state.Lines[lpos-1])-textOffset+1))
+				VideoWriteText(textX, lineY, byte(textColor), Copy(state.Lines[lpos-1], textOffset, Length(state.Lines[lpos-1])-textOffset+1))
 			}
 		}
 	} else if lpos == 0 || lpos == state.LineCount+1 {
@@ -148,10 +159,7 @@ func TextWindowDrawLine(state *TTextWindowState, lpos int16, withoutFormatting, 
 }
 
 func TextWindowDraw(state *TTextWindowState, withoutFormatting, viewingFile bool) {
-	var (
-		i    int16
-		unk1 int16
-	)
+	var i int16
 	for i = 0; i <= TextWindowHeight-4; i++ {
 		TextWindowDrawLine(state, state.LinePos-TextWindowHeight/2+i+2, withoutFormatting, viewingFile)
 	}
@@ -160,26 +168,26 @@ func TextWindowDraw(state *TTextWindowState, withoutFormatting, viewingFile bool
 
 func TextWindowAppend(state *TTextWindowState, line string) {
 	state.LineCount++
-	New(state.Lines[state.LineCount-1])
-	*state.Lines[state.LineCount-1] = line
+	state.Lines[state.LineCount-1] = line
 }
 
 func TextWindowFree(state *TTextWindowState) {
 	for state.LineCount > 0 {
-		Dispose(state.Lines[state.LineCount-1])
+		state.Lines[state.LineCount-1] = ""
 		state.LineCount--
 	}
 	state.LoadedFilename = ""
 }
 
 func TextWindowPrint(state *TTextWindowState) {
-	var (
+	// stub
+	/* var (
 		iLine, iChar int16
 		line         string
 	)
 	Rewrite(Lst)
 	for iLine = 1; iLine <= state.LineCount; iLine++ {
-		line = *state.Lines[iLine-1]
+		line = state.Lines[iLine-1]
 		if Length(line) > 0 {
 			switch line[0] {
 			case '$':
@@ -208,13 +216,12 @@ func TextWindowPrint(state *TTextWindowState) {
 		WriteLn(Lst, *OrderPrintId)
 	}
 	Write(Lst, Chr(12))
-	Close(Lst)
+	Close(Lst) */
 }
 
 func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bool) {
 	var (
 		newLinePos   int16
-		unk1         int16
 		iLine, iChar int16
 		pointerStr   string
 	)
@@ -228,13 +235,13 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 			newLinePos += InputDeltaY
 		} else if InputShiftPressed || InputKeyPressed == KEY_ENTER {
 			InputShiftAccepted = true
-			if *state.Lines[state.LinePos-1][0] == "!" {
-				pointerStr = Copy(*state.Lines[state.LinePos-1], 2, Length(*state.Lines[state.LinePos-1])-1)
+			if state.Lines[state.LinePos-1][0] == '!' {
+				pointerStr = Copy(state.Lines[state.LinePos-1], 2, Length(state.Lines[state.LinePos-1])-1)
 				if Pos(';', pointerStr) > 0 {
 					pointerStr = Copy(pointerStr, 1, Pos(';', pointerStr)-1)
 				}
 				if pointerStr[0] == '-' {
-					pointerStr = Delete(pointerStr, 1, 1)
+					pointerStr = pointerStr[1:]
 					TextWindowFree(state)
 					TextWindowOpenFile(pointerStr, state)
 					if state.LineCount == 0 {
@@ -252,10 +259,10 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 					} else {
 						pointerStr = ":" + pointerStr
 						for iLine = 1; iLine <= state.LineCount; iLine++ {
-							if Length(pointerStr) > Length(*state.Lines[iLine-1]) {
+							if Length(pointerStr) > Length(state.Lines[iLine-1]) {
 							} else {
 								for iChar = 1; iChar <= Length(pointerStr); iChar++ {
-									if UpCase(pointerStr[iChar-1]) != UpCase(byte(*state.Lines[iLine-1][iChar-1])) {
+									if UpCase(pointerStr[iChar-1]) != UpCase(byte(state.Lines[iLine-1][iChar-1])) {
 										goto LabelNotMatched
 									}
 								}
@@ -290,7 +297,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 		if newLinePos != state.LinePos {
 			state.LinePos = newLinePos
 			TextWindowDraw(state, false, viewingFile)
-			if *state.Lines[state.LinePos-1][0] == "!" {
+			if state.Lines[state.LinePos-1][0] == '!' {
 				if hyperlinkAsSelect {
 					TextWindowDrawTitle(0x1E, "\xaePress ENTER to select this\xaf")
 				} else {
@@ -321,7 +328,7 @@ func TextWindowEdit(state *TTextWindowState) {
 	DeleteCurrLine := func() {
 		var i int16
 		if state.LineCount > 1 {
-			Dispose(state.Lines[state.LinePos-1])
+			state.Lines[state.LinePos-1] = ""
 			for i = state.LinePos + 1; i <= state.LineCount; i++ {
 				state.Lines[i-1-1] = state.Lines[i-1]
 			}
@@ -332,7 +339,7 @@ func TextWindowEdit(state *TTextWindowState) {
 				TextWindowDraw(state, true, false)
 			}
 		} else {
-			*state.Lines[0] = ""
+			state.Lines[0] = ""
 		}
 	}
 
@@ -349,11 +356,11 @@ func TextWindowEdit(state *TTextWindowState) {
 		} else {
 			VideoWriteText(77, 14, 0x1E, "off")
 		}
-		if charPos >= Length(*state.Lines[state.LinePos-1])+1 {
-			charPos = Length(*state.Lines[state.LinePos-1]) + 1
+		if charPos >= Length(state.Lines[state.LinePos-1])+1 {
+			charPos = Length(state.Lines[state.LinePos-1]) + 1
 			VideoWriteText(charPos+TextWindowX+3, TextWindowY+TextWindowHeight/2+1, 0x70, " ")
 		} else {
-			VideoWriteText(charPos+TextWindowX+3, TextWindowY+TextWindowHeight/2+1, 0x70, *state.Lines[state.LinePos-1][charPos-1])
+			VideoWriteText(charPos+TextWindowX+3, TextWindowY+TextWindowHeight/2+1, 0x70, string([]byte{state.Lines[state.LinePos-1][charPos-1]}))
 		}
 		InputReadWaitKey()
 		newLinePos = state.LinePos
@@ -368,7 +375,7 @@ func TextWindowEdit(state *TTextWindowState) {
 			newLinePos = state.LinePos + TextWindowHeight - 4
 		case KEY_RIGHT:
 			charPos++
-			if charPos > Length(*state.Lines[state.LinePos-1])+1 {
+			if charPos > Length(state.Lines[state.LinePos-1])+1 {
 				charPos = 1
 				newLinePos = state.LinePos + 1
 			}
@@ -383,18 +390,17 @@ func TextWindowEdit(state *TTextWindowState) {
 				for i = state.LineCount; i >= state.LinePos+1; i-- {
 					state.Lines[i+1-1] = state.Lines[i-1]
 				}
-				New(state.Lines[state.LinePos+1-1])
-				*state.Lines[state.LinePos+1-1] = Copy(*state.Lines[state.LinePos-1], charPos, Length(*state.Lines[state.LinePos-1])-charPos+1)
-				*state.Lines[state.LinePos-1] = Copy(*state.Lines[state.LinePos-1], 1, charPos-1)
+				state.Lines[state.LinePos+1-1] = Copy(state.Lines[state.LinePos-1], charPos, Length(state.Lines[state.LinePos-1])-charPos+1)
+				state.Lines[state.LinePos-1] = Copy(state.Lines[state.LinePos-1], 1, charPos-1)
 				newLinePos = state.LinePos + 1
 				charPos = 1
 				state.LineCount++
 			}
 		case KEY_BACKSPACE:
 			if charPos > 1 {
-				*state.Lines[state.LinePos-1] = Copy(*state.Lines[state.LinePos-1], 1, charPos-2) + Copy(*state.Lines[state.LinePos-1], charPos, Length(*state.Lines[state.LinePos-1])-charPos+1)
+				state.Lines[state.LinePos-1] = Copy(state.Lines[state.LinePos-1], 1, charPos-2) + Copy(state.Lines[state.LinePos-1], charPos, Length(state.Lines[state.LinePos-1])-charPos+1)
 				charPos--
-			} else if Length(*state.Lines[state.LinePos-1]) == 0 {
+			} else if Length(state.Lines[state.LinePos-1]) == 0 {
 				DeleteCurrLine()
 				newLinePos = state.LinePos - 1
 				charPos = TextWindowWidth
@@ -403,17 +409,17 @@ func TextWindowEdit(state *TTextWindowState) {
 		case KEY_INSERT:
 			insertMode = !insertMode
 		case KEY_DELETE:
-			*state.Lines[state.LinePos-1] = Copy(*state.Lines[state.LinePos-1], 1, charPos-1) + Copy(*state.Lines[state.LinePos-1], charPos+1, Length(*state.Lines[state.LinePos-1])-charPos)
+			state.Lines[state.LinePos-1] = Copy(state.Lines[state.LinePos-1], 1, charPos-1) + Copy(state.Lines[state.LinePos-1], charPos+1, Length(state.Lines[state.LinePos-1])-charPos)
 		case KEY_CTRL_Y:
 			DeleteCurrLine()
 		default:
 			if InputKeyPressed >= ' ' && charPos < TextWindowWidth-7 {
 				if !insertMode {
-					*state.Lines[state.LinePos-1] = Copy(*state.Lines[state.LinePos-1], 1, charPos-1) + InputKeyPressed + Copy(*state.Lines[state.LinePos-1], charPos+1, Length(*state.Lines[state.LinePos-1])-charPos)
+					state.Lines[state.LinePos-1] = Copy(state.Lines[state.LinePos-1], 1, charPos-1) + string(InputKeyPressed) + Copy(state.Lines[state.LinePos-1], charPos+1, Length(state.Lines[state.LinePos-1])-charPos)
 					charPos++
 				} else {
-					if Length(*state.Lines[state.LinePos-1]) < TextWindowWidth-8 {
-						*state.Lines[state.LinePos-1] = Copy(*state.Lines[state.LinePos-1], 1, charPos-1) + InputKeyPressed + Copy(*state.Lines[state.LinePos-1], charPos, Length(*state.Lines[state.LinePos-1])-charPos+1)
+					if Length(state.Lines[state.LinePos-1]) < TextWindowWidth-8 {
+						state.Lines[state.LinePos-1] = Copy(state.Lines[state.LinePos-1], 1, charPos-1) + string(InputKeyPressed) + Copy(state.Lines[state.LinePos-1], charPos, Length(state.Lines[state.LinePos-1])-charPos+1)
 						charPos++
 					}
 				}
@@ -435,20 +441,16 @@ func TextWindowEdit(state *TTextWindowState) {
 			break
 		}
 	}
-	if Length(*state.Lines[state.LineCount-1]) == 0 {
-		Dispose(state.Lines[state.LineCount-1])
+	if Length(state.Lines[state.LineCount-1]) == 0 {
 		state.LineCount--
 	}
 }
 
-func TextWindowOpenFile(filename string, state *TTextWindowState) {
+func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 	var (
-		f        *File
-		tf       text
 		i        int16
 		entryPos int16
 		retVal   bool
-		line     *string
 		lineLen  byte
 	)
 	retVal = true
@@ -465,78 +467,88 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) {
 		entryPos = 0
 	}
 	TextWindowInitState(state)
-	state.LoadedFilename = UpCaseString(filename)
+	state.LoadedFilename = strings.ToUpper(filename)
 	if ResourceDataHeader.EntryCount == 0 {
-		Assign(f, ResourceDataFileName)
-		Reset(f, 1)
-		if IOResult() == 0 {
-			BlockRead(f, ResourceDataHeader, SizeOf(ResourceDataHeader))
+		f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+		ResourceDataHeader.EntryCount = -1
+		if err == nil {
+			err := ReadResourceDataHeader(f, &ResourceDataHeader)
+			if err != nil {
+				ResourceDataHeader.EntryCount = -1
+			}
 		}
-		if IOResult() != 0 {
-			ResourceDataHeader.EntryCount = -1
-		}
-		Close(f)
+		f.Close()
 	}
 	if entryPos == 0 {
 		for i = 1; i <= ResourceDataHeader.EntryCount; i++ {
-			if UpCaseString(ResourceDataHeader.Name[i-1]) == UpCaseString(filename) {
+			if strings.EqualFold(ResourceDataHeader.Name[i-1], filename) {
 				entryPos = i
 			}
 		}
 	}
 	if entryPos <= 0 {
-		Assign(tf, filename)
-		Reset(tf)
-		for IOResult() == 0 && !Eof(tf) {
-			state.LineCount++
-			New(state.Lines[state.LineCount-1])
-			ReadLn(tf, *state.Lines[state.LineCount-1])
+		f, err := os.Open(PathFindCaseInsensitiveFile(filename))
+		if err != nil {
+			return err
 		}
-		Close(tf)
+		defer f.Close()
+		scanner := bufio.NewScanner(f)
+		for scanner.Scan() {
+			state.LineCount++
+			state.Lines[state.LineCount-1] = scanner.Text()
+		}
+		return scanner.Err()
 	} else {
-		Assign(f, ResourceDataFilename)
-		Reset(f, 1)
-		Seek(f, ResourceDataHeader.FileOffset[entryPos-1])
-		if IOResult() == 0 {
-			retVal = true
-			for IOResult() == 0 && retVal {
-				state.LineCount++
-				New(state.Lines[state.LineCount-1])
-				BlockRead(f, *state.Lines[state.LineCount-1], 1)
-				line = Ptr(Seg(*state.Lines[state.LineCount-1]), Ofs(*state.Lines[state.LineCount-1])+1)
-				lineLen = Ord(*state.Lines[state.LineCount-1][-1])
-				if lineLen == 0 {
-					*state.Lines[state.LineCount-1] = ""
-				} else {
-					BlockRead(f, *line, Ord(*state.Lines[state.LineCount-1][-1]))
-				}
-				if *state.Lines[state.LineCount-1] == "@" {
-					retVal = false
-					*state.Lines[state.LineCount-1] = ""
-				}
+		f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+
+		_, err = f.Seek(int64(ResourceDataHeader.FileOffset[entryPos-1]), os.SEEK_SET)
+		if err != nil {
+			return err
+		}
+
+		for {
+			state.LineCount++
+			var sLen byte
+			if err := ReadPByte(f, &sLen); err != nil {
+				return err
 			}
-			Close(f)
+			if lineLen == 0 {
+				state.Lines[state.LineCount-1] = ""
+			} else {
+				strB := make([]byte, lineLen)
+				if _, err := f.Read(strB); err != nil {
+					return err
+				}
+				state.Lines[state.LineCount-1] = string(strB)
+			}
+			if state.Lines[state.LineCount-1] == "@" {
+				state.Lines[state.LineCount-1] = ""
+				break
+			}
 		}
 	}
+	return nil
 }
 
-func TextWindowSaveFile(filename string, state *TTextWindowState) {
-	var (
-		f text
-		i int16
-	)
-	Assign(f, filename)
-	Rewrite(f)
-	if IOResult() != 0 {
-		return
+func TextWindowSaveFile(filename string, state *TTextWindowState) error {
+	var i int16
+	f, err := os.Create(PathFindCaseInsensitiveFile(filename))
+	if err != nil {
+		return err
 	}
+	defer f.Close()
+
 	for i = 1; i <= state.LineCount; i++ {
-		WriteLn(f, *state.Lines[i-1])
-		if IOResult() != 0 {
-			return
+		if _, err := fmt.Fprintln(f, state.Lines[i-1]); err != nil {
+			return err
 		}
 	}
-	Close(f)
+
+	return nil
 }
 
 func TextWindowDisplayFile(filename, title string) {
@@ -561,19 +573,18 @@ func TextWindowInit(x, y, width, height int16) {
 	TextWindowStrInnerEmpty = ""
 	TextWindowStrInnerLine = ""
 	for i = 1; i <= TextWindowWidth-5; i++ {
-		TextWindowStrInnerEmpty += ' '
-		TextWindowStrInnerLine += '\xcd'
+		TextWindowStrInnerEmpty += " "
+		TextWindowStrInnerLine += "\xcd"
 	}
 	TextWindowStrTop = "\xc6\xd1" + TextWindowStrInnerLine + "\xd1" + "\xb5"
 	TextWindowStrBottom = "\xc6\xcf" + TextWindowStrInnerLine + "\xcf" + "\xb5"
 	TextWindowStrSep = " \xc6" + TextWindowStrInnerLine + "\xb5" + " "
 	TextWindowStrText = " \xb3" + TextWindowStrInnerEmpty + "\xb3" + " "
-	TextWindowStrInnerArrows = TextWindowStrInnerEmpty
-	TextWindowStrInnerArrows[0] = '\xaf'
-	TextWindowStrInnerArrows[Length(TextWindowStrInnerArrows)-1] = '\xae'
+	TextWindowStrInnerArrows = "\xaf" + TextWindowStrInnerEmpty[1:len(TextWindowStrInnerEmpty)-1] + "\xae"
 	TextWindowStrInnerSep = TextWindowStrInnerEmpty
-	for i = 1; i <= TextWindowWidth/5; i++ {
-		TextWindowStrInnerSep[i*5+TextWindowWidth%5/2-1] = '\x07'
+	for i = 1; i < TextWindowWidth/5; i++ {
+		splicePos := i*5 + TextWindowWidth%5/2 - 1
+		TextWindowStrInnerSep = TextWindowStrInnerSep[:splicePos] + "\x07" + TextWindowStrInnerSep[splicePos+1:]
 	}
 }
 
