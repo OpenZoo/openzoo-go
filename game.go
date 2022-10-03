@@ -723,22 +723,21 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 
 func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 	var (
-		dataStr string
+		dataStr strings.Builder
 		dataPtr io.Reader
 		dataChr byte
 		i       int16
 	)
 	stat := Board.Stats(statId)
 	TextWindowInitState(state)
-	dataStr = ""
 	dataPtr = bytes.NewReader(*stat.Data)
 	for i = 0; i <= stat.DataLen; i++ {
 		ReadPByte(dataPtr, &dataChr)
 		if dataChr == KEY_ENTER {
-			TextWindowAppend(state, dataStr)
-			dataStr = ""
+			TextWindowAppend(state, dataStr.String())
+			dataStr.Reset()
 		} else {
-			dataStr += Chr(dataChr)
+			dataStr.WriteByte(dataChr)
 		}
 	}
 }

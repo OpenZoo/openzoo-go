@@ -50,6 +50,7 @@ func VideoConfigure() bool {
 			if KeyPressed() {
 				break
 			}
+			platform.Idle(platform.IMUntilFrame)
 		}
 		charTyped := UpCase(ReadKey())
 		switch charTyped {

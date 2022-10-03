@@ -1,6 +1,6 @@
 package main // unit: Oop
 
-// interface uses: GameVars
+import "strings" // interface uses: GameVars
 
 // implementation uses: Sounds, TxtWind, Game, Elements
 
@@ -22,7 +22,7 @@ func OopReadChar(statId int16, position *int16) {
 }
 
 func OopReadWord(statId int16, position *int16) {
-	OopWord = ""
+	var word strings.Builder
 	for {
 		OopReadChar(statId, position)
 		if OopChar != ' ' {
@@ -32,21 +32,19 @@ func OopReadWord(statId int16, position *int16) {
 	OopChar = UpCase(OopChar)
 	if OopChar < '0' || OopChar > '9' {
 		for OopChar >= 'A' && OopChar <= 'Z' || OopChar == ':' || OopChar >= '0' && OopChar <= '9' || OopChar == '_' {
-			OopWord += Chr(OopChar)
+			word.WriteByte(OopChar)
 			OopReadChar(statId, position)
 			OopChar = UpCase(OopChar)
 		}
 	}
+	OopWord = word.String()
 	if *position > 0 {
 		*position--
 	}
 }
 
 func OopReadValue(statId int16, position *int16) {
-	var (
-		s string
-	)
-	s = ""
+	var sb strings.Builder
 	for {
 		OopReadChar(statId, position)
 		if OopChar != ' ' {
@@ -55,10 +53,11 @@ func OopReadValue(statId int16, position *int16) {
 	}
 	OopChar = UpCase(OopChar)
 	for OopChar >= '0' && OopChar <= '9' {
-		s += Chr(OopChar)
+		sb.WriteByte(OopChar)
 		OopReadChar(statId, position)
 		OopChar = UpCase(OopChar)
 	}
+	s := sb.String()
 	if *position > 0 {
 		*position--
 	}
@@ -298,19 +297,18 @@ func WorldClearFlag(name string) {
 
 func OopStringToWord(input string) (OopStringToWord string) {
 	var (
-		output string
+		output strings.Builder
 		i      int16
 	)
-	output = ""
 	for i = 1; i <= Length(input); i++ {
 		if input[i-1] >= 'A' && input[i-1] <= 'Z' || input[i-1] >= '0' && input[i-1] <= '9' {
-			output += Chr(input[i-1])
+			output.WriteByte(input[i-1])
 		} else if input[i-1] >= 'a' && input[i-1] <= 'z' {
-			output += Chr(input[i-1] - 0x20)
+			output.WriteByte(input[i-1] - 0x20)
 		}
 
 	}
-	OopStringToWord = output
+	OopStringToWord = output.String()
 	return
 }
 
@@ -437,14 +435,13 @@ func OopCheckCondition(statId int16, position *int16) (result bool) {
 }
 
 func OopReadLineToEnd(statId int16, position *int16) string {
-	var s string
-	s = ""
+	var s strings.Builder
 	OopReadChar(statId, position)
 	for OopChar != '\x00' && OopChar != '\r' {
-		s += Chr(OopChar)
+		s.WriteByte(OopChar)
 		OopReadChar(statId, position)
 	}
-	return s
+	return s.String()
 }
 
 func OopSend(statId int16, sendLabel string, ignoreLock bool) (OopSend bool) {

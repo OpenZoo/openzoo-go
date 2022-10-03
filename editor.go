@@ -3,6 +3,8 @@ package main // unit: Editor
 import (
 	"bytes" // interface uses: GameVars, TxtWind
 	"os"
+
+	"github.com/OpenZoo/openzoo-go/platform"
 )
 
 // implementation uses: Dos, Crt, Video, Sounds, Input, Elements, Oop, Game
@@ -527,6 +529,7 @@ func EditorLoop() {
 		if drawMode == DrawingOn {
 			EditorPlaceTile(cursorX, cursorY)
 		}
+		platform.Idle(platform.IMUntilFrame)
 		InputUpdate()
 		if InputKeyPressed == '\x00' && InputDeltaX == 0 && InputDeltaY == 0 && !InputShiftPressed {
 			if SoundHasTimeElapsed(&TickTimeCounter, 15) {

@@ -1,5 +1,7 @@
 package main // unit: Input
 
+import "github.com/OpenZoo/openzoo-go/platform"
+
 const (
 	KEY_BACKSPACE = '\x08'
 	KEY_TAB       = '\t'
@@ -329,6 +331,7 @@ func InputConfigure() (InputConfigure bool) {
 				if KeyPressed() {
 					break
 				}
+				platform.Idle(platform.IMUntilFrame)
 			}
 			charTyped = UpCase(ReadKey())
 			if charTyped == 'K' || InputJoystickEnabled && charTyped == 'J' || InputMouseEnabled && charTyped == 'M' || charTyped == '\x1b' {

@@ -2,6 +2,7 @@ package main // unit: Sounds
 
 import (
 	"math"
+	"strings"
 
 	"github.com/OpenZoo/openzoo-go/platform"
 )
@@ -162,14 +163,13 @@ func SoundParse(input string) (SoundParse string) {
 	var (
 		noteOctave   int16
 		noteDuration int16
-		output       string
+		output       strings.Builder
 		noteTone     int16
 	)
 	AdvanceInput := func() {
 		input = Copy(input, 2, Length(input)-1)
 	}
 
-	output = ""
 	noteOctave = 3
 	noteDuration = 1
 	for Length(input) != 0 {
@@ -243,18 +243,21 @@ func SoundParse(input string) (SoundParse string) {
 					AdvanceInput()
 				}
 			}
-			output += Chr(byte(noteOctave*0x10+noteTone)) + Chr(byte(noteDuration))
+			output.WriteByte(byte(noteOctave*0x10 + noteTone))
+			output.WriteByte(byte(noteDuration))
 		case 'X':
-			output += "\x00" + Chr(byte(noteDuration))
+			output.WriteByte(0x00)
+			output.WriteByte(byte(noteDuration))
 			AdvanceInput()
 		case '0', '1', '2', '4', '5', '6', '7', '8', '9':
-			output += Chr(input[0]+0xF0-'0') + Chr(byte(noteDuration))
+			output.WriteByte(input[0] + 0xF0 - '0')
+			output.WriteByte(byte(noteDuration))
 			AdvanceInput()
 		default:
 			AdvanceInput()
 		}
 	}
-	SoundParse = output
+	SoundParse = output.String()
 	return
 }
 
