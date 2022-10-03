@@ -72,6 +72,12 @@ func ReadResourceDataHeader(r io.Reader, b *TResourceDataHeader) error {
 
 const TEXT_WINDOW_ANIM_SPEED = 25
 
+func NewTextWindowState() *TTextWindowState {
+	var state TTextWindowState
+	TextWindowInitState(&state)
+	return &state
+}
+
 func TextWindowInitState(state *TTextWindowState) {
 	state.LineCount = 0
 	state.LinePos = 1
@@ -454,7 +460,6 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 		i        int16
 		entryPos int16
 		retVal   bool
-		lineLen  byte
 	)
 	retVal = true
 	for i = 1; i <= Length(filename); i++ {
@@ -515,8 +520,8 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 
 		for {
 			state.LineCount++
-			var sLen byte
-			if err := ReadPByte(f, &sLen); err != nil {
+			var lineLen byte
+			if err := ReadPByte(f, &lineLen); err != nil {
 				return err
 			}
 			if lineLen == 0 {
