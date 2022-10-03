@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"golang.org/x/exp/constraints"
 )
@@ -61,8 +60,12 @@ func Random[T constraints.Integer](max T) int16 {
 	return int16((RandSeed >> 16) % uint32(max))
 }
 
-func UpCase[T PasChar](s T) T {
-	return T(unicode.ToUpper(rune(s)))
+func UpCase(s byte) byte {
+	if s >= 'a' && s <= 'z' {
+		return s - 0x20
+	} else {
+		return s
+	}
 }
 
 func Length(s string) int16 {

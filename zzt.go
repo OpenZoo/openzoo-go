@@ -16,7 +16,7 @@ func ParseArguments() {
 	for i = 1; i < len(os.Args); i++ {
 		pArg = os.Args[i]
 		if pArg[0] == '/' {
-			switch UpCase(rune(pArg[1])) {
+			switch UpCase(pArg[1]) {
 			case 'R':
 				ResetConfig = true
 			}

@@ -74,27 +74,10 @@ func updateSdlEvents() {
 	}
 }
 
-func PlatformMain(mainFunc func()) {
-	var err error
-	runtime.LockOSThread()
-
-	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
-		panic(err)
-	}
-	defer sdl.Quit()
-
-	VideoWindow, err = sdl.CreateWindow("OpenZoo/Go", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
-		640, 350, sdl.WINDOW_SHOWN)
-	if err != nil {
-		panic(err)
-	}
-	defer VideoWindow.Destroy()
-
-	// TODO: VideoSurface, err = sdl.CreateRGBSurface(0, 640, 350, 32, 0, 0, 0, 0)
-	VideoSurface, err = VideoWindow.GetSurface()
-	if err != nil {
-		panic(err)
-	}
+func PlatformMain2(mainFunc func()) {
+	/* file, _ := os.Create("./cpu.pprof")
+	pprof.StartCPUProfile(file)
+	defer pprof.StopCPUProfile() */
 
 	frameTicker := time.NewTicker(16667 * time.Microsecond)
 	frameTickerDone := make(chan bool)
@@ -131,9 +114,34 @@ func PlatformMain(mainFunc func()) {
 		}
 	}()
 
-	sdl.Main(mainFunc)
+	mainFunc()
 
 	pitTicker.Stop()
 	pitTickerDone <- true
 	frameTickerDone <- true
+}
+
+func PlatformMain(mainFunc func()) {
+	var err error
+	runtime.LockOSThread()
+
+	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
+		panic(err)
+	}
+	defer sdl.Quit()
+
+	VideoWindow, err = sdl.CreateWindow("OpenZoo/Go", sdl.WINDOWPOS_UNDEFINED, sdl.WINDOWPOS_UNDEFINED,
+		640, 350, sdl.WINDOW_SHOWN)
+	if err != nil {
+		panic(err)
+	}
+	defer VideoWindow.Destroy()
+
+	// TODO: VideoSurface, err = sdl.CreateRGBSurface(0, 640, 350, 32, 0, 0, 0, 0)
+	VideoSurface, err = VideoWindow.GetSurface()
+	if err != nil {
+		panic(err)
+	}
+
+	sdl.Main(func() { PlatformMain2(mainFunc) })
 }
