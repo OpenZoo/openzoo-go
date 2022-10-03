@@ -1,6 +1,10 @@
 package main // unit: Sounds
 
-import "math"
+import (
+	"math"
+
+	"github.com/OpenZoo/openzoo-go/platform"
+)
 
 type TDrumData struct {
 	Len  int16
@@ -17,8 +21,6 @@ var (
 	SoundBuffer             string
 	SoundBufferPos          int16
 	SoundIsPlaying          bool
-	TimerTicks              uint16
-	SoundTimeCheckHsec      int16
 	SoundDrumTable          [10]TDrumData
 )
 
@@ -112,7 +114,7 @@ func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bo
 		hSecsDiff  uint16
 		hSecsTotal int16
 	)
-	hSecsTotal = int16(TimerTicks * 6)
+	hSecsTotal = int16(platform.TimerTicks() * 11 / 2)
 	hSecsDiff = uint16(hSecsTotal - *counter)
 	if hSecsDiff >= uint16(duration) {
 		SoundHasTimeElapsed = true
@@ -124,7 +126,6 @@ func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bo
 }
 
 func SoundTimerHandler() {
-	TimerTicks++
 	if !SoundEnabled {
 		SoundIsPlaying = false
 		NoSound()
@@ -258,12 +259,9 @@ func SoundParse(input string) (SoundParse string) {
 func init() {
 	SoundInitFreqTable()
 	SoundInitDrumTable()
-	TimerTicks = 0
-	SoundTimeCheckHsec = 0
 	SoundEnabled = true
 	SoundBlockQueueing = false
 	SoundClearQueue()
 	SoundDurationMultiplier = 1
 	SoundIsPlaying = false
-	TimerTicks = 0
 }

@@ -3,12 +3,25 @@ package platform
 import (
 	_ "embed"
 	"runtime"
+	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
 
+type IdleMode int
+
+const (
+	IMUntilPit IdleMode = iota
+	IMUntilFrame
+)
+
 var VideoWindow *sdl.Window
 var VideoSurface *sdl.Surface
+var timerTicks int
+
+func TimerTicks() int {
+	return timerTicks
+}
 
 func MemAvail() int32 {
 	// stub
@@ -24,6 +37,10 @@ func Sound(freq uint16) {
 }
 
 func SetCBreak(v bool) {
+	// stub
+}
+
+func Idle(mode IdleMode) {
 	// stub
 }
 
@@ -55,5 +72,22 @@ func PlatformMain(mainFunc func()) {
 		panic(err)
 	}
 
+	pitTicker := time.NewTicker(55 * time.Millisecond)
+	pitTickerDone := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-pitTicker.C:
+				timerTicks++
+			case <-pitTickerDone:
+				return
+			}
+		}
+	}()
+
 	sdl.Main(mainFunc)
+
+	pitTicker.Stop()
+	pitTickerDone <- true
 }

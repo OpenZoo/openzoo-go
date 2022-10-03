@@ -65,7 +65,8 @@ type (
 		Data         *[]byte
 		DataPos      int16
 		DataLen      int16
-		Padding      [8]byte
+		Padding1     [4]byte
+		Padding2     [8]byte
 	}
 	TRleTile struct {
 		Count byte

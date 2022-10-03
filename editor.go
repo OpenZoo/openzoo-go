@@ -91,7 +91,7 @@ func EditorLoop() {
 			VideoWriteText(61+i, 22, byte(i), "\xdb")
 		}
 		for i = 1; i <= EditorPatternCount; i++ {
-			VideoWriteText(61+i, 22, 0x0F, string([]byte{ElementDefs[EditorPatterns[i-1]].Character}))
+			VideoWriteText(61+i, 22, 0x0F, Chr(ElementDefs[EditorPatterns[i-1]].Character))
 		}
 		if ElementDefs[copiedTile.Element].HasDrawProc {
 			ElementDefs[copiedTile.Element].DrawProc(copiedX, copiedY, &copiedChr)
@@ -705,7 +705,7 @@ func EditorLoop() {
 						VideoWriteText(65, i, 0x1E, ElementDefs[iElem].CategoryName)
 						i++
 					}
-					VideoWriteText(61, i, byte(i%2<<6+0x30), " "+string(rune(ElementDefs[iElem].EditorShortcut))+" ")
+					VideoWriteText(61, i, byte(i%2<<6+0x30), " "+Chr(ElementDefs[iElem].EditorShortcut)+" ")
 					VideoWriteText(65, i, 0x1F, ElementDefs[iElem].Name)
 					if ElementDefs[iElem].Color == COLOR_CHOICE_ON_BLACK {
 						elemMenuColor = cursorColor%0x10 + 0x10
@@ -719,7 +719,7 @@ func EditorLoop() {
 						elemMenuColor = int16(ElementDefs[iElem].Color)
 					}
 
-					VideoWriteText(78, i, byte(elemMenuColor), string([]byte{ElementDefs[iElem].Character}))
+					VideoWriteText(78, i, byte(elemMenuColor), Chr(ElementDefs[iElem].Character))
 					i++
 				}
 			}
