@@ -30,7 +30,11 @@ func PathBasenameWithoutExt(s string) string {
 }
 
 func PathFindCaseInsensitiveFile(s string) string {
-	parentS, err := filepath.Rel(s, "..")
+	absS, err := filepath.Abs(s)
+	if err != nil {
+		return s
+	}
+	parentS := filepath.Dir(absS)
 	filenameS := filepath.Base(s)
 	if err != nil {
 		return s
@@ -44,11 +48,7 @@ func PathFindCaseInsensitiveFile(s string) string {
 		}
 		return err
 	})
-	pathS, err := filepath.Rel(parentS, filenameS)
-	if err != nil {
-		return s
-	}
-	return pathS
+	return filepath.Join(parentS, filenameS)
 }
 
 func Randomize() {

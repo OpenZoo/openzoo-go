@@ -25,10 +25,8 @@ const (
 	LightMagenta uint8 = 13
 	Yellow       uint8 = 14
 	White        uint8 = 15
+	Blink        uint8 = 128
 )
-
-// stub
-var TextAttr byte
 
 var windowMinX int = 1
 var windowMinY int = 1
@@ -36,7 +34,7 @@ var windowMaxX int = 80
 var windowMaxY int = 25
 var cursorX int = 1
 var cursorY int = 1
-var cursorColor uint8
+var TextAttr uint8
 
 func Window(x1, y1, x2, y2 int) {
 	windowMinX = x1
@@ -56,16 +54,16 @@ func GotoXY(x, y int) {
 func ClrScr() {
 	line := strings.Repeat(" ", windowMaxX-windowMinX+1)
 	for iy := windowMinY; iy <= windowMaxY; iy++ {
-		platform.VideoWriteText(int16(windowMinX-1), int16(iy-1), cursorColor, line)
+		platform.VideoWriteText(int16(windowMinX-1), int16(iy-1), TextAttr, line)
 	}
 }
 
 func TextBackground(v uint8) {
-	cursorColor = (cursorColor & 0x0F) | ((v << 4) & 0xF0)
+	TextAttr = (TextAttr & 0x0F) | ((v << 4) & 0xF0)
 }
 
 func TextColor(v uint8) {
-	cursorColor = (cursorColor & 0xF0) | (v & 0x0F)
+	TextAttr = (TextAttr & 0xF0) | (v & 0x0F)
 }
 
 func Write(s string) {
@@ -80,7 +78,7 @@ func Write(s string) {
 				// TODO: scroll up
 			}
 		default:
-			platform.VideoWriteText(int16(cursorX)-1, int16(cursorY)-1, cursorColor, s[i:i+1])
+			platform.VideoWriteText(int16(cursorX)-1, int16(cursorY)-1, TextAttr, s[i:i+1])
 			cursorX++
 			if cursorX > windowMaxX {
 				Write("\r\n")

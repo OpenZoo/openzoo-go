@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"os"
 
 	"github.com/OpenZoo/openzoo-go/platform"
@@ -35,13 +37,19 @@ func GameConfigure() {
 	ConfigRegistration = ""
 	ConfigWorldFile = ""
 	GameVersion = "3.2"
-	// stub
-	/* Assign(cfgFile, "zzt.cfg")
-	Reset(cfgFile)
-	if IOResult() == 0 {
-		Readln(cfgFile, ConfigWorldFile)
-		Readln(cfgFile, ConfigRegistration)
-	} */
+	{
+		f, err := os.Open(PathFindCaseInsensitiveFile("zzt.cfg"))
+		if err == nil {
+			bf := bufio.NewReader(f)
+			line, _, _ := bf.ReadLine()
+			ConfigWorldFile = string(line)
+			line, _, _ = bf.ReadLine()
+			ConfigRegistration = string(line)
+			fmt.Println(ConfigWorldFile)
+			fmt.Println(ConfigRegistration)
+		}
+		f.Close()
+	}
 	if Length(ConfigWorldFile) > 0 {
 		if ConfigWorldFile[0] == '*' {
 			EditorEnabled = false
@@ -139,7 +147,6 @@ func ZZTMain() {
 	SoundUninstall()
 	SoundClearQueue()
 	VideoUninstall()
-	// stub Port[PORT_CGA_PALETTE] = 0
 	TextAttr = InitialTextAttr
 	ClrScr()
 	if Length(ConfigRegistration) == 0 {
