@@ -3,7 +3,6 @@ package main // unit: Game
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	"io"
 	"io/fs"
 	"os"
@@ -159,7 +158,6 @@ func BoardOpen(boardId int16) {
 			data := make([]byte, stat.DataLen)
 			r.Read(data)
 			stat.Data = &data
-			fmt.Printf("r %v\n", data)
 		} else if stat.DataLen < 0 {
 			stat.Data = Board.Stats(-stat.DataLen).Data
 			stat.DataLen = Board.Stats(-stat.DataLen).DataLen
@@ -1382,9 +1380,9 @@ func GamePlayLoop(boardChanged bool) {
 				}
 				CurrentStatTicked = 0
 				InputUpdate()
+			} else {
+				platform.Idle(platform.IMUntilPit)
 			}
-		} else {
-			platform.Idle(platform.IMUntilPit)
 		}
 		if (exitLoop || GamePlayExitRequested) && GamePlayExitRequested {
 			break

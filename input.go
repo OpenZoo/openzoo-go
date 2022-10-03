@@ -35,7 +35,7 @@ var (
 	InputShiftAccepted                           bool
 	InputJoystickEnabled                         bool
 	InputMouseEnabled                            bool
-	InputKeyPressed                              rune
+	InputKeyPressed                              byte
 	InputMouseX, InputMouseY                     int16
 	InputMouseActivationX, InputMouseActivationY int16
 	InputMouseButtonX, InputMouseButtonY         int16
@@ -81,7 +81,7 @@ func InputJoystickGetCoords(x, y *int16) {
 }
 
 func InputCalibrateJoystickPosition(msg string, x, y *int16) (InputCalibrateJoystickPosition bool) {
-	var charTyped rune
+	var charTyped byte
 	charTyped = '\x00'
 	Write(msg)
 	for {
@@ -184,7 +184,7 @@ func InputUpdate() {
 		}
 	}
 	if Length(InputKeyBuffer) != 0 {
-		InputKeyPressed = rune(InputKeyBuffer[0])
+		InputKeyPressed = InputKeyBuffer[0]
 		if Length(InputKeyBuffer) == 1 {
 			InputKeyBuffer = ""
 		} else {
@@ -312,7 +312,7 @@ func InputInitDevices() {
 }
 
 func InputConfigure() (InputConfigure bool) {
-	var charTyped rune
+	var charTyped byte
 	charTyped = ' '
 	if InputJoystickEnabled || InputMouseEnabled {
 		WriteLn("")

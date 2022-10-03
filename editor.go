@@ -1,6 +1,9 @@
 package main // unit: Editor
 
-import "bytes" // interface uses: GameVars, TxtWind
+import (
+	"bytes" // interface uses: GameVars, TxtWind
+	"os"
+)
 
 // implementation uses: Dos, Crt, Video, Sounds, Input, Elements, Oop, Game
 
@@ -413,62 +416,58 @@ func EditorLoop() {
 	}
 
 	EditorTransferBoard := func() {
-		// stub
-		/* var (
-				i byte
-				f *File
-			)
-			i = 1
-			SidebarPromptChoice(true, 3, "Transfer board:", "Import Export", &i)
-			if InputKeyPressed != KEY_ESCAPE {
-				if i == 0 {
-					SidebarPromptString("Import board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
-					if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-						Assign(f, SavedBoardFileName+".BRD")
-						Reset(f, 1)
-						if DisplayIOError() {
-							goto TransferEnd
-						}
-						BoardClose()
-						FreeMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-						BlockRead(f, World.BoardLen[World.Info.CurrentBoard], 2)
-						if !DisplayIOError() {
-							GetMem(World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-							BlockRead(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-						}
-						if DisplayIOError() {
-							World.BoardLen[World.Info.CurrentBoard] = 0
-							BoardCreate()
-							EditorDrawRefresh()
-						} else {
-							BoardOpen(World.Info.CurrentBoard)
-							EditorDrawRefresh()
-							for i = 0; i <= 3; i++ {
-								Board.Info.NeighborBoards[i] = 0
-							}
-						}
+		var i byte
+		i = 1
+		SidebarPromptChoice(true, 3, "Transfer board:", "Import Export", &i)
+		if InputKeyPressed != KEY_ESCAPE {
+			if i == 0 {
+				SidebarPromptString("Import board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
+				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
+					f, err := os.Open(PathFindCaseInsensitiveFile(SavedBoardFileName + ".BRD"))
+					if err != nil {
+						DisplayIOError(err)
+						goto TransferEnd
 					}
-				} else if i == 1 {
-					SidebarPromptString("Export board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
-					if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-						Assign(f, SavedBoardFileName+".BRD")
-						Rewrite(f, 1)
-						if DisplayIOError() {
+					defer f.Close()
+					BoardClose()
+					var boardLen uint16
+					err = ReadPUShort(f, &boardLen)
+					if err != nil && boardLen > 0 {
+						data := make([]byte, boardLen)
+						_, err = f.Read(data)
+						if err != nil {
+							DisplayIOError(err)
 							goto TransferEnd
 						}
-						BoardClose()
-						BlockWrite(f, World.BoardLen[World.Info.CurrentBoard], 2)
-						BlockWrite(f, *World.BoardData[World.Info.CurrentBoard], World.BoardLen[World.Info.CurrentBoard])
-						BoardOpen(World.Info.CurrentBoard)
-						if DisplayIOError() {
-						} else {
-							Close(f)
-						}
+						World.BoardData[World.Info.CurrentBoard] = data
+					}
+					BoardOpen(World.Info.CurrentBoard)
+					EditorDrawRefresh()
+					for i = 0; i <= 3; i++ {
+						Board.Info.NeighborBoards[i] = 0
+					}
+				}
+			} else if i == 1 {
+				SidebarPromptString("Export board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
+				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
+					f, err := os.Create(PathFindCaseInsensitiveFile(SavedBoardFileName + ".BRD"))
+					if err != nil {
+						DisplayIOError(err)
+						goto TransferEnd
+					}
+					defer f.Close()
+					BoardClose()
+					WritePShort(f, int16(len(World.BoardData[World.Info.CurrentBoard])))
+					_, err = f.Write(World.BoardData[World.Info.CurrentBoard])
+					BoardOpen(World.Info.CurrentBoard)
+					if err != nil {
+						DisplayIOError(err)
 					}
 				}
 			}
-		TransferEnd:
-			EditorDrawSidebar() */
+		}
+	TransferEnd:
+		EditorDrawSidebar()
 	}
 
 	EditorFloodFill := func(x, y int16, from TTile) {
@@ -814,34 +813,43 @@ func EditorLoop() {
 	InitElementsGame()
 }
 
+func HighScoresClear() {
+	for i := 0; i < HIGH_SCORE_COUNT; i++ {
+		HighScoreList[i].Name = ""
+		HighScoreList[i].Score = -1
+	}
+}
+
 func HighScoresLoad() {
-	// stub
-	var i int16
-	/*
-		Assign(f, World.Info.Name+".HI")
-		Reset(f)
-		if IOResult() == 0 {
-			Read(f, HighScoreList)
-		}
-		Close(f)
-		if IOResult() != 0 */{
-		for i = 1; i <= HIGH_SCORE_COUNT; i++ {
-			HighScoreList[i-1].Name = ""
-			HighScoreList[i-1].Score = -1
+	f, err := os.Open(PathFindCaseInsensitiveFile(World.Info.Name + ".HI"))
+	if err != nil {
+		HighScoresClear()
+		return
+	}
+	defer f.Close()
+
+	for i := 0; i < HIGH_SCORE_COUNT; i++ {
+		err = ReadHighScoreEntry(f, &HighScoreList[i])
+		if err != nil {
+			HighScoresClear()
+			return
 		}
 	}
 }
 
 func HighScoresSave() {
-	// stub
-	/* var f *File
-	Assign(f, World.Info.Name+".HI")
-	Rewrite(f)
-	Write(f, HighScoreList)
-	Close(f)
-	if DisplayIOError() {
-	} else {
-	} */
+	f, err := os.Create(PathFindCaseInsensitiveFile(World.Info.Name + ".HI"))
+	if err != nil {
+		return
+	}
+	defer f.Close()
+
+	for i := 0; i < HIGH_SCORE_COUNT; i++ {
+		err = WriteHighScoreEntry(f, HighScoreList[i])
+		if err != nil {
+			return
+		}
+	}
 }
 
 func HighScoresInitTextWindow(state *TTextWindowState) {

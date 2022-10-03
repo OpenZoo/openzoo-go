@@ -70,7 +70,7 @@ func Length(s string) int16 {
 }
 
 func Pos(needleChr byte, s string) int16 {
-	return int16(strings.IndexByte(s, needleChr))
+	return int16(strings.IndexByte(s, needleChr) + 1)
 }
 
 func Chr(v byte) string {
@@ -118,7 +118,7 @@ func StrWidth[T constraints.Integer](v T, minLength int) string {
 func Copy(s string, start int16, length int16) string {
 	start -= 1
 
-	if len(s) < int(start+length) {
+	if len(s) <= int(start+length) {
 		return s[start:]
 	} else {
 		return s[start : start+length]

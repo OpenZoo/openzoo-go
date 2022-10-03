@@ -3,6 +3,8 @@ package platform
 import (
 	_ "embed"
 	"runtime"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/veandco/go-sdl2/sdl"
@@ -15,8 +17,11 @@ const (
 	IMUntilFrame
 )
 
+var FrameTickCond = sync.NewCond(&sync.Mutex{})
+var PitTickCond = sync.NewCond(&sync.Mutex{})
 var VideoWindow *sdl.Window
 var VideoSurface *sdl.Surface
+var VideoUpdateRequested atomic.Bool
 var timerTicks int
 
 func TimerTicks() int {
@@ -41,13 +46,32 @@ func SetCBreak(v bool) {
 }
 
 func Idle(mode IdleMode) {
-	// stub
+	switch mode {
+	case IMUntilFrame:
+		FrameTickCond.L.Lock()
+		FrameTickCond.Wait()
+		FrameTickCond.L.Unlock()
+	case IMUntilPit:
+		PitTickCond.L.Lock()
+		PitTickCond.Wait()
+		PitTickCond.L.Unlock()
+	}
 }
 
 func Delay(ms uint32) {
 	sdl.Do(func() {
 		sdl.Delay(ms)
 	})
+}
+
+func updateSdlEvents() {
+	for event := sdl.PollEvent(); event != nil; event = sdl.PollEvent() {
+		switch e := event.(type) {
+		case *sdl.KeyboardEvent:
+			ParseSDLKeyboardEvent(e)
+			break
+		}
+	}
 }
 
 func PlatformMain(mainFunc func()) {
@@ -72,6 +96,26 @@ func PlatformMain(mainFunc func()) {
 		panic(err)
 	}
 
+	frameTicker := time.NewTicker(16667 * time.Microsecond)
+	frameTickerDone := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-frameTicker.C:
+				sdl.Do(updateSdlEvents)
+				if VideoUpdateRequested.Swap(false) {
+					sdl.Do(func() {
+						VideoWindow.UpdateSurface()
+					})
+				}
+				FrameTickCond.Broadcast()
+			case <-frameTickerDone:
+				return
+			}
+		}
+	}()
+
 	pitTicker := time.NewTicker(55 * time.Millisecond)
 	pitTickerDone := make(chan bool)
 
@@ -80,6 +124,7 @@ func PlatformMain(mainFunc func()) {
 			select {
 			case <-pitTicker.C:
 				timerTicks++
+				PitTickCond.Broadcast()
 			case <-pitTickerDone:
 				return
 			}
@@ -90,4 +135,5 @@ func PlatformMain(mainFunc func()) {
 
 	pitTicker.Stop()
 	pitTickerDone <- true
+	frameTickerDone <- true
 }

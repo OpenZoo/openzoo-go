@@ -95,13 +95,11 @@ func WriteLn(s string) {
 }
 
 func KeyPressed() bool {
-	// stub
-	return false
+	return platform.KeyPressed()
 }
 
-func ReadKey() rune {
-	// stub
-	return 0
+func ReadKey() byte {
+	return platform.ReadKey()
 }
 
 func NoSound() {

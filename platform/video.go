@@ -5,11 +5,13 @@ import (
 	_ "embed"
 	"image/color"
 )
-import "github.com/veandco/go-sdl2/sdl"
+import (
+	"github.com/veandco/go-sdl2/sdl"
+)
 
 //go:embed ascii.chr
 var charsetData []byte
-var textBuffer [25][80][2]byte
+var textBuffer [25][160]byte
 var textColumns int = 80
 
 var palette = []color.RGBA{
@@ -38,8 +40,8 @@ func redrawChar(ix, iy int) {
 	py := iy * 14
 	VideoSurface.Lock()
 
-	ch := int(textBuffer[iy][ix][0]) * 14
-	co := textBuffer[iy][ix][1]
+	ch := int(textBuffer[iy][ix*2]) * 14
+	co := textBuffer[iy][ix*2+1]
 	coBg := palette[co>>4]
 	coFg := palette[co&0xF]
 
@@ -68,20 +70,20 @@ func VideoClrScr(backgroundColor uint8) {
 	sdl.Do(func() {
 		for iy := 0; iy < 25; iy++ {
 			for ix := 0; ix < textColumns; ix++ {
-				textBuffer[iy][ix][0] = ' '
-				textBuffer[iy][ix][1] = backgroundColor << 4
+				textBuffer[iy][ix*2] = ' '
+				textBuffer[iy][ix*2+1] = backgroundColor << 4
 				redrawChar(ix, iy)
 			}
 		}
-		VideoWindow.UpdateSurface()
+		VideoUpdateRequested.Store(true)
 	})
 }
 
 func VideoWriteText(x, y int16, color byte, text string) {
 	sdl.Do(func() {
 		for i := 0; i < len(text); i++ {
-			textBuffer[y][x][0] = text[i]
-			textBuffer[y][x][1] = color
+			textBuffer[y][x*2] = text[i]
+			textBuffer[y][x*2+1] = color
 			redrawChar(int(x), int(y))
 			x++
 			if x >= int16(textColumns) {
@@ -92,7 +94,7 @@ func VideoWriteText(x, y int16, color byte, text string) {
 				}
 			}
 		}
-		VideoWindow.UpdateSurface()
+		VideoUpdateRequested.Store(true)
 	})
 }
 
@@ -109,8 +111,24 @@ func VideoUninstall() {
 }
 
 func VideoMove(x, y, width int16, buffer *[]byte, toVideo bool) {
-	sdl.Do(func() {
-		// stub
-		VideoWindow.UpdateSurface()
-	})
+	if toVideo {
+		sdl.Do(func() {
+			if buffer != nil {
+				if width > int16(len(*buffer)>>1) {
+					width = int16(len(*buffer) >> 1)
+				}
+				for i := 0; i < int(width)*2; i++ {
+					textBuffer[y][int(x)*2+i] = (*buffer)[i]
+				}
+				for i := 0; i < int(width); i++ {
+					redrawChar(int(x)+i, int(y))
+				}
+			}
+
+			VideoUpdateRequested.Store(true)
+		})
+	} else {
+		*buffer = make([]byte, width*2)
+		copy(*buffer, textBuffer[y][x*2:(x+width)*2])
+	}
 }
