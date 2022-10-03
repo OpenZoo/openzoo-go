@@ -86,14 +86,14 @@ func GameConfigure() {
 	TextBackground(Black)
 	ClrScr()
 	TextColor(Yellow)
-	/* if !InputConfigure() {
+	if !InputConfigure() {
 		GameTitleExitRequested = true
 	} else {
 		TextColor(LightGreen)
 		if !VideoConfigure() {
 			GameTitleExitRequested = true
 		}
-	} */
+	}
 	Window(1, 1, 80, 25)
 }
 

@@ -302,7 +302,7 @@ func InputInitMouse() (InputInitMouse bool) {
 	regs.AX = 0
 	Intr(0x33, regs)
 	InputInitMouse = regs.AX == 0 */
-	InputInitMouse = true
+	InputInitMouse = false
 	return
 }
 

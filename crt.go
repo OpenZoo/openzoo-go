@@ -56,7 +56,7 @@ func GotoXY(x, y int) {
 func ClrScr() {
 	line := strings.Repeat(" ", windowMaxX-windowMinX+1)
 	for iy := windowMinY; iy <= windowMaxY; iy++ {
-		VideoWriteText(int16(windowMinX-1), int16(iy-1), cursorColor, line)
+		platform.VideoWriteText(int16(windowMinX-1), int16(iy-1), cursorColor, line)
 	}
 }
 
@@ -80,7 +80,7 @@ func Write(s string) {
 				// TODO: scroll up
 			}
 		default:
-			VideoWriteText(int16(cursorX)-1, int16(cursorY)-1, cursorColor, s[i:i+1])
+			platform.VideoWriteText(int16(cursorX)-1, int16(cursorY)-1, cursorColor, s[i:i+1])
 			cursorX++
 			if cursorX > windowMaxX {
 				Write("\r\n")
