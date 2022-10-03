@@ -473,7 +473,7 @@ func OopSend(statId int16, sendLabel string, ignoreLock bool) (OopSend bool) {
 
 func OopExecute(statId int16, position *int16, name string) {
 	var (
-		textWindow        TTextWindowState
+		textWindow        *TTextWindowState
 		textLine          string
 		deltaX, deltaY    int16
 		ix, iy            int16
@@ -496,9 +496,6 @@ func OopExecute(statId int16, position *int16, name string) {
 	)
 	stat := Board.Stats(statId)
 StartParsing:
-	TextWindowInitState(&textWindow)
-
-	textWindow.Selectable = false
 	stopRunning = false
 	repeatInsNextTick = false
 	replaceStat = false
@@ -763,15 +760,19 @@ StartParsing:
 				OopSkipLine(statId, position)
 			}
 		} else if OopChar == '\r' {
-			if textWindow.LineCount > 0 {
-				TextWindowAppend(&textWindow, "")
+			if textWindow != nil && textWindow.LineCount > 0 {
+				TextWindowAppend(textWindow, "")
 			}
 		} else if OopChar == '\x00' {
 			endOfProgram = true
 		} else {
 			textLine = Chr(OopChar)
 			textLine += OopReadLineToEnd(statId, position)
-			TextWindowAppend(&textWindow, textLine)
+			if textWindow == nil {
+				textWindow = NewTextWindowState()
+				textWindow.Selectable = false
+			}
+			TextWindowAppend(textWindow, textLine)
 		}
 
 		if endOfProgram || stopRunning || repeatInsNextTick || replaceStat || insCount > 32 {
@@ -784,28 +785,31 @@ StartParsing:
 	if OopChar == '\x00' {
 		*position = -1
 	}
-	if textWindow.LineCount > 1 {
-		namePosition = 0
-		OopReadChar(statId, &namePosition)
-		if OopChar == '@' {
-			name = OopReadLineToEnd(statId, &namePosition)
-		}
-		if Length(name) == 0 {
-			name = "Interaction"
-		}
-		textWindow.Title = name
-		TextWindowDrawOpen(&textWindow)
-		TextWindowSelect(&textWindow, true, false)
-		TextWindowDrawClose(&textWindow)
-		TextWindowFree(&textWindow)
-		if Length(textWindow.Hyperlink) != 0 {
-			if OopSend(statId, textWindow.Hyperlink, false) {
-				goto StartParsing
+	if textWindow != nil {
+		if textWindow.LineCount > 1 {
+			namePosition = 0
+			OopReadChar(statId, &namePosition)
+			if OopChar == '@' {
+				name = OopReadLineToEnd(statId, &namePosition)
 			}
+			if Length(name) == 0 {
+				name = "Interaction"
+			}
+			textWindow.Title = name
+			TextWindowDrawOpen(textWindow)
+			TextWindowSelect(textWindow, true, false)
+			TextWindowDrawClose(textWindow)
+			TextWindowFree(textWindow)
+			if Length(textWindow.Hyperlink) != 0 {
+				if OopSend(statId, textWindow.Hyperlink, false) {
+					textWindow = nil
+					goto StartParsing
+				}
+			}
+		} else if textWindow.LineCount == 1 {
+			DisplayMessage(200, textWindow.Lines[0])
+			TextWindowFree(textWindow)
 		}
-	} else if textWindow.LineCount == 1 {
-		DisplayMessage(200, textWindow.Lines[0])
-		TextWindowFree(&textWindow)
 	}
 
 	if replaceStat {
