@@ -76,21 +76,21 @@ func BoardClose() {
 	ix = 1
 	iy = 1
 	rle.Count = 1
-	rle.Tile = Board.Tiles[ix][iy]
+	rle.Tile = Board.Tiles.Get(ix, iy)
 	for {
 		ix++
 		if ix > BOARD_WIDTH {
 			ix = 1
 			iy++
 		}
-		if Board.Tiles[ix][iy].Color == rle.Tile.Color && Board.Tiles[ix][iy].Element == rle.Tile.Element && rle.Count < 255 && iy <= BOARD_HEIGHT {
+		if Board.Tiles.Get(ix, iy).Color == rle.Tile.Color && Board.Tiles.Get(ix, iy).Element == rle.Tile.Element && rle.Count < 255 && iy <= BOARD_HEIGHT {
 			rle.Count++
 		} else {
 			WritePByte(w, rle.Count)
 			WritePByte(w, rle.Tile.Element)
 			WritePByte(w, rle.Tile.Color)
 
-			rle.Tile = Board.Tiles[ix][iy]
+			rle.Tile = Board.Tiles.Get(ix, iy)
 			rle.Count = 1
 		}
 		if iy > BOARD_HEIGHT {
@@ -136,7 +136,7 @@ func BoardOpen(boardId int16) {
 			ReadPByte(r, &rle.Tile.Element)
 			ReadPByte(r, &rle.Tile.Color)
 		}
-		Board.Tiles[ix][iy] = rle.Tile
+		Board.Tiles.Set(ix, iy, rle.Tile)
 		ix++
 		if ix > BOARD_WIDTH {
 			ix = 1
@@ -166,8 +166,7 @@ func BoardOpen(boardId int16) {
 }
 
 func BoardChange(boardId int16) {
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
+	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	BoardClose()
 	BoardOpen(boardId)
 }
@@ -184,29 +183,27 @@ func BoardCreate() {
 		Board.Info.NeighborBoards[i] = 0
 	}
 	for ix = 0; ix <= BOARD_WIDTH+1; ix++ {
-		Board.Tiles[ix][0] = TileBoardEdge
-		Board.Tiles[ix][BOARD_HEIGHT+1] = TileBoardEdge
+		Board.Tiles.Set(ix, 0, TileBoardEdge)
+		Board.Tiles.Set(ix, BOARD_HEIGHT+1, TileBoardEdge)
 	}
 	for iy = 0; iy <= BOARD_HEIGHT+1; iy++ {
-		Board.Tiles[0][iy] = TileBoardEdge
-		Board.Tiles[BOARD_WIDTH+1][iy] = TileBoardEdge
+		Board.Tiles.Set(0, iy, TileBoardEdge)
+		Board.Tiles.Set(BOARD_WIDTH+1, iy, TileBoardEdge)
 	}
 	for ix = 1; ix <= BOARD_WIDTH; ix++ {
 		for iy = 1; iy <= BOARD_HEIGHT; iy++ {
-			Board.Tiles[ix][iy].Element = E_EMPTY
-			Board.Tiles[ix][iy].Color = 0
+			Board.Tiles.Set(ix, iy, TTile{Element: E_EMPTY, Color: 0})
 		}
 	}
 	for ix = 1; ix <= BOARD_WIDTH; ix++ {
-		Board.Tiles[ix][1] = TileBorder
-		Board.Tiles[ix][BOARD_HEIGHT] = TileBorder
+		Board.Tiles.Set(ix, 1, TileBorder)
+		Board.Tiles.Set(ix, BOARD_HEIGHT, TileBorder)
 	}
 	for iy = 1; iy <= BOARD_HEIGHT; iy++ {
-		Board.Tiles[1][iy] = TileBorder
-		Board.Tiles[BOARD_WIDTH][iy] = TileBorder
+		Board.Tiles.Set(1, iy, TileBorder)
+		Board.Tiles.Set(BOARD_WIDTH, iy, TileBorder)
 	}
-	Board.Tiles[BOARD_WIDTH/2][BOARD_HEIGHT/2].Element = E_PLAYER
-	Board.Tiles[BOARD_WIDTH/2][BOARD_HEIGHT/2].Color = ElementDefs[E_PLAYER].Color
+	Board.Tiles.Set(BOARD_WIDTH/2, BOARD_HEIGHT/2, TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	Board.StatCount = 0
 	Board.Stats(0).X = BOARD_WIDTH / 2
 	Board.Stats(0).Y = BOARD_HEIGHT / 2
@@ -257,9 +254,12 @@ func TransitionDrawToFill(chr byte, color int16) {
 }
 
 func BoardDrawTile(x, y int16) {
+	if x < 1 || y < 1 || x > 80 || y > 25 {
+		return
+	}
 	var ch byte
-	tile := &Board.Tiles[x][y]
-	if !Board.Info.IsDark || ElementDefs[Board.Tiles[x][y].Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats(0).X)-x)+Sqr(int16(Board.Stats(0).Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
+	tile := Board.Tiles.Get(x, y)
+	if !Board.Info.IsDark || ElementDefs[tile.Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats(0).X)-x)+Sqr(int16(Board.Stats(0).Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
 		if tile.Element == E_EMPTY {
 			VideoWriteText(x-1, y-1, 0x0F, " ")
 		} else if ElementDefs[tile.Element].HasDrawProc {
@@ -269,11 +269,11 @@ func BoardDrawTile(x, y int16) {
 			VideoWriteText(x-1, y-1, tile.Color, Chr(ElementDefs[tile.Element].Character))
 		} else {
 			if tile.Element == E_TEXT_WHITE {
-				VideoWriteText(x-1, y-1, 0x0F, Chr(Board.Tiles[x][y].Color))
+				VideoWriteText(x-1, y-1, 0x0F, Chr(tile.Color))
 			} else if VideoMonochrome {
-				VideoWriteText(x-1, y-1, byte((int16(tile.Element-E_TEXT_MIN)+1)*16), Chr(Board.Tiles[x][y].Color))
+				VideoWriteText(x-1, y-1, byte((int16(tile.Element-E_TEXT_MIN)+1)*16), Chr(tile.Color))
 			} else {
-				VideoWriteText(x-1, y-1, byte((int16(tile.Element-E_TEXT_MIN)+1)*16+0x0F), Chr(Board.Tiles[x][y].Color))
+				VideoWriteText(x-1, y-1, byte((int16(tile.Element-E_TEXT_MIN)+1)*16+0x0F), Chr(tile.Color))
 			}
 
 		}
@@ -750,19 +750,19 @@ func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
 		stat.X = byte(tx)
 		stat.Y = byte(ty)
 		stat.Cycle = tcycle
-		stat.Under = Board.Tiles[tx][ty]
+		stat.Under = Board.Tiles.Get(tx, ty)
 		stat.DataPos = 0
 		if template.Data != nil {
 			copiedData := make([]byte, len(*template.Data))
 			copy(copiedData, *template.Data)
 			Board.Stats(Board.StatCount).Data = &copiedData
 		}
-		if ElementDefs[Board.Tiles[tx][ty].Element].PlaceableOnTop {
-			Board.Tiles[tx][ty].Color = byte(color&0x0F + int16(Board.Tiles[tx][ty].Color)&0x70)
+		if ElementDefs[Board.Tiles.Get(tx, ty).Element].PlaceableOnTop {
+			Board.Tiles.SetColor(tx, ty, byte(color&0x0F+int16(Board.Tiles.Get(tx, ty).Color)&0x70))
 		} else {
-			Board.Tiles[tx][ty].Color = byte(color)
+			Board.Tiles.SetColor(tx, ty, byte(color))
 		}
-		Board.Tiles[tx][ty].Element = element
+		Board.Tiles.SetElement(tx, ty, element)
 		if ty > 0 {
 			BoardDrawTile(tx, ty)
 		}
@@ -785,7 +785,7 @@ StatDataInUse:
 		CurrentStatTicked--
 	}
 
-	Board.Tiles[stat.X][stat.Y] = stat.Under
+	Board.Tiles.Set(int16(stat.X), int16(stat.Y), stat.Under)
 	if stat.Y > 0 {
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
 	}
@@ -838,8 +838,8 @@ func BoardPrepareTileForPlacement(x, y int16) (BoardPrepareTileForPlacement bool
 		RemoveStat(statId)
 		result = true
 	} else if statId < 0 {
-		if !ElementDefs[Board.Tiles[x][y].Element].PlaceableOnTop {
-			Board.Tiles[x][y].Element = E_EMPTY
+		if !ElementDefs[Board.Tiles.Get(x, y).Element].PlaceableOnTop {
+			Board.Tiles.SetElement(x, y, E_EMPTY)
 		}
 		result = true
 	} else {
@@ -859,17 +859,17 @@ func MoveStat(statId int16, newX, newY int16) {
 	)
 	stat := Board.Stats(statId)
 	iUnder = Board.Stats(statId).Under
-	Board.Stats(statId).Under = Board.Tiles[newX][newY]
-	if Board.Tiles[stat.X][stat.Y].Element == E_PLAYER {
-		Board.Tiles[newX][newY].Color = Board.Tiles[stat.X][stat.Y].Color
-	} else if Board.Tiles[newX][newY].Element == E_EMPTY {
-		Board.Tiles[newX][newY].Color = byte(int16(Board.Tiles[stat.X][stat.Y].Color) & 0x0F)
+	Board.Stats(statId).Under = Board.Tiles.Get(newX, newY)
+	if Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element == E_PLAYER {
+		Board.Tiles.SetColor(newX, newY, Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Color)
+	} else if Board.Tiles.Get(newX, newY).Element == E_EMPTY {
+		Board.Tiles.SetColor(newX, newY, byte(int16(Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Color)&0x0F))
 	} else {
-		Board.Tiles[newX][newY].Color = byte(int16(Board.Tiles[stat.X][stat.Y].Color)&0x0F + int16(Board.Tiles[newX][newY].Color)&0x70)
+		Board.Tiles.SetColor(newX, newY, byte(int16(Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Color)&0x0F+int16(Board.Tiles.Get(newX, newY).Color)&0x70))
 	}
 
-	Board.Tiles[newX][newY].Element = Board.Tiles[stat.X][stat.Y].Element
-	Board.Tiles[stat.X][stat.Y] = iUnder
+	Board.Tiles.SetElement(newX, newY, Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element)
+	Board.Tiles.Set(int16(stat.X), int16(stat.Y), iUnder)
 	oldX = int16(stat.X)
 	oldY = int16(stat.Y)
 	stat.X = byte(newX)
@@ -1011,12 +1011,12 @@ func DamageStat(attackerStatId int16) {
 			World.Info.Health -= 10
 			GameUpdateSidebar()
 			DisplayMessage(100, "Ouch!")
-			Board.Tiles[stat.X][stat.Y].Color = byte(0x70 + int16(ElementDefs[E_PLAYER].Color)%0x10)
+			Board.Tiles.SetColor(int16(stat.X), int16(stat.Y), byte(0x70+int16(ElementDefs[E_PLAYER].Color)%0x10))
 			if World.Info.Health > 0 {
 				World.Info.BoardTimeSec = 0
 				if Board.Info.ReenterWhenZapped {
 					SoundQueue(4, " \x01#\x01'\x010\x01\x10\x01")
-					Board.Tiles[stat.X][stat.Y].Element = E_EMPTY
+					Board.Tiles.SetElement(int16(stat.X), int16(stat.Y), E_EMPTY)
 					BoardDrawTile(int16(stat.X), int16(stat.Y))
 					oldX = int16(stat.X)
 					oldY = int16(stat.Y)
@@ -1032,7 +1032,7 @@ func DamageStat(attackerStatId int16) {
 			}
 		}
 	} else {
-		switch Board.Tiles[stat.X][stat.Y].Element {
+		switch Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element {
 		case E_BULLET:
 			SoundQueue(3, " \x01")
 		case E_OBJECT:
@@ -1049,14 +1049,14 @@ func BoardDamageTile(x, y int16) {
 	if statId != -1 {
 		DamageStat(statId)
 	} else {
-		Board.Tiles[x][y].Element = E_EMPTY
+		Board.Tiles.SetElement(x, y, E_EMPTY)
 		BoardDrawTile(x, y)
 	}
 }
 
 func BoardAttack(attackerStatId int16, x, y int16) {
 	if attackerStatId == 0 && World.Info.EnergizerTicks > 0 {
-		World.Info.Score = ElementDefs[Board.Tiles[x][y].Element].ScoreValue + World.Info.Score
+		World.Info.Score = ElementDefs[Board.Tiles.Get(x, y).Element].ScoreValue + World.Info.Score
 		GameUpdateSidebar()
 	} else {
 		DamageStat(attackerStatId)
@@ -1064,8 +1064,8 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 	if attackerStatId > 0 && attackerStatId <= CurrentStatTicked {
 		CurrentStatTicked--
 	}
-	if Board.Tiles[x][y].Element == E_PLAYER && World.Info.EnergizerTicks > 0 {
-		World.Info.Score = ElementDefs[Board.Tiles[Board.Stats(attackerStatId).X][Board.Stats(attackerStatId).Y].Element].ScoreValue + World.Info.Score
+	if Board.Tiles.Get(x, y).Element == E_PLAYER && World.Info.EnergizerTicks > 0 {
+		World.Info.Score = ElementDefs[Board.Tiles.Get(int16(Board.Stats(attackerStatId).X), int16(Board.Stats(attackerStatId).Y)).Element].ScoreValue + World.Info.Score
 		GameUpdateSidebar()
 	} else {
 		BoardDamageTile(x, y)
@@ -1074,7 +1074,7 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 }
 
 func BoardShoot(element byte, tx, ty, deltaX, deltaY int16, source int16) (BoardShoot bool) {
-	if ElementDefs[Board.Tiles[tx+deltaX][ty+deltaY].Element].Walkable || Board.Tiles[tx+deltaX][ty+deltaY].Element == E_WATER {
+	if ElementDefs[Board.Tiles.Get(tx+deltaX, ty+deltaY).Element].Walkable || Board.Tiles.Get(tx+deltaX, ty+deltaY).Element == E_WATER {
 		AddStat(tx+deltaX, ty+deltaY, element, int16(ElementDefs[element].Color), 1, StatTemplateDefault)
 		stat := Board.Stats(Board.StatCount)
 		stat.P1 = byte(source)
@@ -1082,7 +1082,7 @@ func BoardShoot(element byte, tx, ty, deltaX, deltaY int16, source int16) (Board
 		stat.StepY = deltaY
 		stat.P2 = 100
 		BoardShoot = true
-	} else if Board.Tiles[tx+deltaX][ty+deltaY].Element == E_BREAKABLE || ElementDefs[Board.Tiles[tx+deltaX][ty+deltaY].Element].Destructible && Board.Tiles[tx+deltaX][ty+deltaY].Element == E_PLAYER == (source != 0) && World.Info.EnergizerTicks <= 0 {
+	} else if Board.Tiles.Get(tx+deltaX, ty+deltaY).Element == E_BREAKABLE || ElementDefs[Board.Tiles.Get(tx+deltaX, ty+deltaY).Element].Destructible && Board.Tiles.Get(tx+deltaX, ty+deltaY).Element == E_PLAYER == (source != 0) && World.Info.EnergizerTicks <= 0 {
 		BoardDamageTile(tx+deltaX, ty+deltaY)
 		SoundQueue(2, "\x10\x01")
 		BoardShoot = true
@@ -1140,20 +1140,19 @@ func BoardPassageTeleport(x, y int16) {
 		ix, iy     int16
 		newX, newY int16
 	)
-	col = Board.Tiles[x][y].Color
+	col = Board.Tiles.Get(x, y).Color
 	// oldBoard = World.Info.CurrentBoard
 	BoardChange(int16(Board.Stats(GetStatIdAt(x, y)).P3))
 	newX = 0
 	for ix = 1; ix <= BOARD_WIDTH; ix++ {
 		for iy = 1; iy <= BOARD_HEIGHT; iy++ {
-			if Board.Tiles[ix][iy].Element == E_PASSAGE && Board.Tiles[ix][iy].Color == col {
+			if Board.Tiles.Get(ix, iy).Element == E_PASSAGE && Board.Tiles.Get(ix, iy).Color == col {
 				newX = ix
 				newY = iy
 			}
 		}
 	}
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_EMPTY
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = 0
+	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_EMPTY, Color: 0})
 	if newX != 0 {
 		Board.Stats(0).X = byte(newX)
 		Board.Stats(0).Y = byte(newY)
@@ -1208,7 +1207,7 @@ func GameDebugPrompt() {
 	} else if input == "ZAP" {
 		for i = 0; i <= 3; i++ {
 			BoardDamageTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
-			Board.Tiles[int16(Board.Stats(0).X)+NeighborDeltaX[i]][int16(Board.Stats(0).Y)+NeighborDeltaY[i]].Element = E_EMPTY
+			Board.Tiles.SetElement(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i], E_EMPTY)
 			BoardDrawTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
 		}
 	}
@@ -1306,8 +1305,7 @@ func GamePlayLoop(boardChanged bool) {
 		BoardChange(0)
 		JustStarted = false
 	}
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = byte(GameStateElement)
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[GameStateElement].Color
+	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: byte(GameStateElement), Color: ElementDefs[GameStateElement].Color})
 	if GameStateElement == E_MONITOR {
 		DisplayMessage(0, "")
 		VideoWriteText(62, 5, 0x1B, "Pick a command:")
@@ -1328,7 +1326,7 @@ func GamePlayLoop(boardChanged bool) {
 			if pauseBlink {
 				VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, ElementDefs[E_PLAYER].Color, Chr(ElementDefs[E_PLAYER].Character))
 			} else {
-				if Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element == E_PLAYER {
+				if Board.Tiles.Get(int16(Board.Stats(0).X), int16(Board.Stats(0).Y)).Element == E_PLAYER {
 					VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, 0x0F, " ")
 				} else {
 					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
@@ -1341,17 +1339,16 @@ func GamePlayLoop(boardChanged bool) {
 				GamePromptEndPlay()
 			}
 			if InputDeltaX != 0 || InputDeltaY != 0 {
-				ElementDefs[Board.Tiles[int16(Board.Stats(0).X)+InputDeltaX][int16(Board.Stats(0).Y)+InputDeltaY].Element].TouchProc(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
+				ElementDefs[Board.Tiles.Get(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY).Element].TouchProc(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
 			}
-			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles[int16(Board.Stats(0).X)+InputDeltaX][int16(Board.Stats(0).Y)+InputDeltaY].Element].Walkable {
-				if Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element == E_PLAYER {
+			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles.Get(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY).Element].Walkable {
+				if Board.Tiles.Get(int16(Board.Stats(0).X), int16(Board.Stats(0).Y)).Element == E_PLAYER {
 					MoveStat(0, int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY)
 				} else {
 					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
 					Board.Stats(0).X += byte(InputDeltaX)
 					Board.Stats(0).Y += byte(InputDeltaY)
-					Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
-					Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
+					Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
 					DrawPlayerSurroundings(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), 0)
 					DrawPlayerSurroundings(int16(Board.Stats(0).X)-InputDeltaX, int16(Board.Stats(0).Y)-InputDeltaY, 0)
@@ -1366,7 +1363,7 @@ func GamePlayLoop(boardChanged bool) {
 			if CurrentStatTicked <= Board.StatCount {
 				stat := Board.Stats(CurrentStatTicked)
 				if stat.Cycle != 0 && CurrentTick%stat.Cycle == CurrentStatTicked%stat.Cycle {
-					ElementDefs[Board.Tiles[stat.X][stat.Y].Element].TickProc(CurrentStatTicked)
+					ElementDefs[Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element].TickProc(CurrentStatTicked)
 				}
 				CurrentStatTicked++
 			}
@@ -1396,8 +1393,7 @@ func GamePlayLoop(boardChanged bool) {
 		SidebarClearLine(5)
 	}
 
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Element = E_PLAYER
-	Board.Tiles[Board.Stats(0).X][Board.Stats(0).Y].Color = ElementDefs[E_PLAYER].Color
+	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	SoundBlockQueueing = false
 }
 

@@ -336,7 +336,7 @@ ColorFound:
 	return
 }
 
-func GetColorForTileMatch(tile *TTile) (GetColorForTileMatch byte) {
+func GetColorForTileMatch(tile TTile) (GetColorForTileMatch byte) {
 	if ElementDefs[tile.Element].Color < COLOR_SPECIAL_MIN {
 		GetColorForTileMatch = byte(int16(ElementDefs[tile.Element].Color) & 0x07)
 	} else if ElementDefs[tile.Element].Color == COLOR_WHITE_ON_CHOICE {
@@ -359,8 +359,8 @@ func FindTileOnBoard(x, y *int16, tile TTile) (FindTileOnBoard bool) {
 				return
 			}
 		}
-		if Board.Tiles[*x][*y].Element == tile.Element {
-			if tile.Color == 0 || GetColorForTileMatch(&Board.Tiles[*x][*y]) == tile.Color {
+		if Board.Tiles.Get(*x, *y).Element == tile.Element {
+			if tile.Color == 0 || GetColorForTileMatch(Board.Tiles.Get(*x, *y)) == tile.Color {
 				FindTileOnBoard = true
 				return
 			}
@@ -371,13 +371,13 @@ func FindTileOnBoard(x, y *int16, tile TTile) (FindTileOnBoard bool) {
 
 func OopPlaceTile(x, y int16, tile *TTile) {
 	var color byte
-	if Board.Tiles[x][y].Element != E_PLAYER {
+	if Board.Tiles.Get(x, y).Element != E_PLAYER {
 		color = tile.Color
 		if ElementDefs[tile.Element].Color < COLOR_SPECIAL_MIN {
 			color = ElementDefs[tile.Element].Color
 		} else {
 			if color == 0 {
-				color = Board.Tiles[x][y].Color
+				color = Board.Tiles.Get(x, y).Color
 			}
 			if color == 0 {
 				color = 0x0F
@@ -386,15 +386,14 @@ func OopPlaceTile(x, y int16, tile *TTile) {
 				color = byte((int16(color)-8)*0x10 + 0x0F)
 			}
 		}
-		if Board.Tiles[x][y].Element == tile.Element {
-			Board.Tiles[x][y].Color = color
+		if Board.Tiles.Get(x, y).Element == tile.Element {
+			Board.Tiles.SetColor(x, y, color)
 		} else {
 			BoardDamageTile(x, y)
 			if ElementDefs[tile.Element].Cycle >= 0 {
 				AddStat(x, y, tile.Element, int16(color), ElementDefs[tile.Element].Cycle, StatTemplateDefault)
 			} else {
-				Board.Tiles[x][y].Element = tile.Element
-				Board.Tiles[x][y].Color = color
+				Board.Tiles.Set(x, y, TTile{Element: tile.Element, Color: color})
 			}
 		}
 		BoardDrawTile(x, y)
@@ -417,7 +416,7 @@ func OopCheckCondition(statId int16, position *int16) (result bool) {
 		result = Sqr(int16(stat.X)-int16(Board.Stats(0).X))+Sqr(int16(stat.Y)-int16(Board.Stats(0).Y)) == 1
 	} else if OopWord == "BLOCKED" {
 		OopReadDirection(statId, position, &deltaX, &deltaY)
-		result = !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable
+		result = !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable
 	} else if OopWord == "ENERGIZED" {
 		result = World.Info.EnergizerTicks > 0
 	} else if OopWord == "ANY" {
@@ -524,10 +523,10 @@ StartParsing:
 			OopReadWord(statId, position)
 			if OopParseDirection(statId, position, &deltaX, &deltaY) {
 				if deltaX != 0 || deltaY != 0 {
-					if !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						ElementPushablePush(int16(stat.X)+deltaX, int16(stat.Y)+deltaY, deltaX, deltaY)
 					}
-					if ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						MoveStat(statId, int16(stat.X)+deltaX, int16(stat.Y)+deltaY)
 						repeatInsNextTick = false
 					}
@@ -556,10 +555,10 @@ StartParsing:
 			if Length(OopWord) != 0 {
 				if OopWord == "GO" {
 					OopReadDirection(statId, position, &deltaX, &deltaY)
-					if !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						ElementPushablePush(int16(stat.X)+deltaX, int16(stat.Y)+deltaY, deltaX, deltaY)
 					}
-					if ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						MoveStat(statId, int16(stat.X)+deltaX, int16(stat.Y)+deltaY)
 					} else {
 						repeatInsNextTick = true
@@ -567,10 +566,10 @@ StartParsing:
 					stopRunning = true
 				} else if OopWord == "TRY" {
 					OopReadDirection(statId, position, &deltaX, &deltaY)
-					if !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						ElementPushablePush(int16(stat.X)+deltaX, int16(stat.Y)+deltaY, deltaX, deltaY)
 					}
-					if ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+					if ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 						MoveStat(statId, int16(stat.X)+deltaX, int16(stat.Y)+deltaY)
 						stopRunning = true
 					} else {
@@ -691,7 +690,7 @@ StartParsing:
 					} else if !OopParseTile(&statId, position, &argTile) {
 						OopError(statId, "Bad #PUT")
 					} else if int16(stat.X)+deltaX > 0 && int16(stat.X)+deltaX <= BOARD_WIDTH && int16(stat.Y)+deltaY > 0 && int16(stat.Y)+deltaY < BOARD_HEIGHT {
-						if !ElementDefs[Board.Tiles[int16(stat.X)+deltaX][int16(stat.Y)+deltaY].Element].Walkable {
+						if !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable {
 							ElementPushablePush(int16(stat.X)+deltaX, int16(stat.Y)+deltaY, deltaX, deltaY)
 						}
 						OopPlaceTile(int16(stat.X)+deltaX, int16(stat.Y)+deltaY, &argTile)

@@ -142,10 +142,9 @@ func EditorLoop() {
 		}
 	}
 
-	EditorSetAndCopyTile := func(x, y, element, color byte) {
-		Board.Tiles[x][y].Element = element
-		Board.Tiles[x][y].Color = color
-		copiedTile = Board.Tiles[x][y]
+	EditorSetAndCopyTile := func(x, y int16, element, color byte) {
+		Board.Tiles.Set(x, y, TTile{Element: element, Color: color})
+		copiedTile = Board.Tiles.Get(x, y)
 		copiedHasStat = false
 		copiedX = int16(x)
 		copiedY = int16(y)
@@ -181,23 +180,24 @@ func EditorLoop() {
 	}
 
 	EditorPlaceTile := func(x, y int16) {
-		tile := &Board.Tiles[x][y]
-		if cursorPattern <= EditorPatternCount {
-			if EditorPrepareModifyTile(x, y) {
-				tile.Element = EditorPatterns[cursorPattern-1]
-				tile.Color = byte(cursorColor)
+		Board.Tiles.With(x, y, func(tile *TTile) {
+			if cursorPattern <= EditorPatternCount {
+				if EditorPrepareModifyTile(x, y) {
+					tile.Element = EditorPatterns[cursorPattern-1]
+					tile.Color = byte(cursorColor)
+				}
+			} else if copiedHasStat {
+				if EditorPrepareModifyStatAtCursor() {
+					AddStat(x, y, copiedTile.Element, int16(copiedTile.Color), copiedStat.Cycle, copiedStat)
+				}
+			} else {
+				if EditorPrepareModifyTile(x, y) {
+					*tile = copiedTile
+				}
 			}
-		} else if copiedHasStat {
-			if EditorPrepareModifyStatAtCursor() {
-				AddStat(x, y, copiedTile.Element, int16(copiedTile.Color), copiedStat.Cycle, copiedStat)
-			}
-		} else {
-			if EditorPrepareModifyTile(x, y) {
-				Board.Tiles[x][y] = copiedTile
-			}
-		}
 
-		EditorDrawTileAndNeighborsAt(x, y)
+			EditorDrawTileAndNeighborsAt(x, y)
+		})
 	}
 
 	EditorEditBoardInfo := func() {
@@ -394,7 +394,7 @@ func EditorLoop() {
 
 		stat := Board.Stats(statId)
 		SidebarClear()
-		element = Board.Tiles[stat.X][stat.Y].Element
+		element = Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element
 		wasModified = true
 		categoryName = ""
 		for i = 0; i <= int16(element); i++ {
@@ -409,7 +409,7 @@ func EditorLoop() {
 		if InputKeyPressed != KEY_ESCAPE {
 			copiedHasStat = true
 			copiedStat = *Board.Stats(statId)
-			copiedTile = Board.Tiles[stat.X][stat.Y]
+			copiedTile = Board.Tiles.Get(int16(stat.X), int16(stat.Y))
 			copiedX = int16(stat.X)
 			copiedY = int16(stat.Y)
 		}
@@ -481,11 +481,11 @@ func EditorLoop() {
 		toFill = 1
 		filled = 0
 		for toFill != filled {
-			tileAt = Board.Tiles[x][y]
+			tileAt = Board.Tiles.Get(x, y)
 			EditorPlaceTile(x, y)
-			if Board.Tiles[x][y].Element != tileAt.Element || Board.Tiles[x][y].Color != tileAt.Color {
+			if Board.Tiles.Get(x, y).Element != tileAt.Element || Board.Tiles.Get(x, y).Color != tileAt.Color {
 				for i = 0; i <= 3; i++ {
-					tile := &Board.Tiles[x+NeighborDeltaX[i]][y+NeighborDeltaY[i]]
+					tile := Board.Tiles.Get(x+NeighborDeltaX[i], y+NeighborDeltaY[i])
 					if tile.Element == from.Element && (from.Element == 0 || tile.Color == from.Color) {
 						xPosition[toFill] = x + NeighborDeltaX[i]
 						yPosition[toFill] = y + NeighborDeltaY[i]
@@ -545,8 +545,7 @@ func EditorLoop() {
 		if drawMode == TextEntry {
 			if InputKeyPressed >= ' ' && InputKeyPressed < '\x80' {
 				if EditorPrepareModifyTile(cursorX, cursorY) {
-					Board.Tiles[cursorX][cursorY].Element = byte(cursorColor - 9 + E_TEXT_MIN)
-					Board.Tiles[cursorX][cursorY].Color = byte(InputKeyPressed)
+					Board.Tiles.Set(cursorX, cursorY, TTile{Element: byte(cursorColor - 9 + E_TEXT_MIN), Color: byte(InputKeyPressed)})
 					EditorDrawTileAndNeighborsAt(cursorX, cursorY)
 					InputDeltaX = 1
 					InputDeltaY = 0
@@ -560,7 +559,7 @@ func EditorLoop() {
 			}
 
 		}
-		tile := &Board.Tiles[cursorX][cursorY]
+		tile := &Board.Tiles.TilesUnsafe[cursorX][cursorY]
 		if InputShiftPressed || InputKeyPressed == ' ' {
 			InputShiftAccepted = true
 			if tile.Element == 0 || ElementDefs[tile.Element].PlaceableOnTop && copiedHasStat && cursorPattern > EditorPatternCount || InputDeltaX != 0 || InputDeltaY != 0 {
@@ -568,7 +567,7 @@ func EditorLoop() {
 			} else {
 				canModify = EditorPrepareModifyTile(cursorX, cursorY)
 				if canModify {
-					Board.Tiles[cursorX][cursorY].Element = 0
+					Board.Tiles.SetElement(cursorX, cursorY, E_EMPTY)
 				}
 			}
 		}
@@ -743,7 +742,7 @@ func EditorLoop() {
 
 						if ElementDefs[iElem].Cycle == -1 {
 							if EditorPrepareModifyTile(cursorX, cursorY) {
-								EditorSetAndCopyTile(byte(cursorX), byte(cursorY), byte(iElem), byte(elemMenuColor))
+								EditorSetAndCopyTile(cursorX, cursorY, byte(iElem), byte(elemMenuColor))
 							}
 						} else {
 							if EditorPrepareModifyStatAtCursor() {
@@ -781,7 +780,7 @@ func EditorLoop() {
 		case 'H':
 			TextWindowDisplayFile("editor.hlp", "World editor help")
 		case 'X':
-			EditorFloodFill(cursorX, cursorY, Board.Tiles[cursorX][cursorY])
+			EditorFloodFill(cursorX, cursorY, Board.Tiles.Get(cursorX, cursorY))
 		case '!':
 			EditorEditHelpFile()
 			EditorDrawSidebar()
@@ -793,7 +792,7 @@ func EditorLoop() {
 				EditorDrawSidebar()
 			} else {
 				copiedHasStat = false
-				copiedTile = Board.Tiles[cursorX][cursorY]
+				copiedTile = Board.Tiles.Get(cursorX, cursorY)
 			}
 		case 'I':
 			EditorEditBoardInfo()

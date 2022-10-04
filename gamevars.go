@@ -105,9 +105,12 @@ type (
 		P1, P2, P3   byte
 		StepX, StepY int16
 	}
+	TTileStorage struct {
+		TilesUnsafe [BOARD_WIDTH + 1 + 1][BOARD_HEIGHT + 1 + 1]TTile
+	}
 	TBoard struct {
 		Name      string
-		Tiles     [BOARD_WIDTH + 1 + 1][BOARD_HEIGHT + 1 + 1]TTile
+		Tiles     TTileStorage
 		StatCount int16
 		stats     [MAX_STAT + 1 + 2]TStat
 		Info      TBoardInfo
@@ -124,6 +127,41 @@ type (
 	}
 	THighScoreList [HIGH_SCORE_COUNT]THighScoreEntry
 )
+
+func (t *TTileStorage) Get(x, y int16) TTile {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		return t.TilesUnsafe[x][y]
+	} else {
+		return TTile{}
+	}
+}
+
+func (t *TTileStorage) With(x, y int16, w func(*TTile)) bool {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		w(&t.TilesUnsafe[x][y])
+		return true
+	} else {
+		return false
+	}
+}
+
+func (t *TTileStorage) Set(x, y int16, tile TTile) {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		t.TilesUnsafe[x][y] = tile
+	}
+}
+
+func (t *TTileStorage) SetElement(x, y int16, element byte) {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		t.TilesUnsafe[x][y].Element = element
+	}
+}
+
+func (t *TTileStorage) SetColor(x, y int16, color byte) {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		t.TilesUnsafe[x][y].Color = color
+	}
+}
 
 func (b *TBoard) Stats(i int16) *TStat {
 	if i < -1 || i > (MAX_STAT+1) {
