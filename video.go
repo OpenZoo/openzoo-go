@@ -1,15 +1,13 @@
 package main
 
-import "github.com/OpenZoo/openzoo-go/platform"
-
 var VideoMonochrome bool = false
 
 func VideoInstall(columns int, backgroundColor uint8) {
 	if VideoMonochrome {
 		backgroundColor = 0
 	}
-	platform.VideoInstall(columns)
-	platform.VideoClrScr(backgroundColor)
+	IVideoInstall(columns)
+	IVideoClrScr(backgroundColor)
 }
 
 func colorToBw(color byte) byte {
@@ -50,7 +48,7 @@ func VideoConfigure() bool {
 			if KeyPressed() {
 				break
 			}
-			platform.Idle(platform.IMUntilFrame)
+			Idle(IMUntilFrame)
 		}
 		charTyped := UpCase(ReadKey())
 		switch charTyped {
@@ -67,28 +65,20 @@ func VideoConfigure() bool {
 }
 
 func VideoClrScr() {
-	platform.VideoClrScr(0)
+	IVideoClrScr(0)
 }
 
 func VideoWriteText(x, y int16, color byte, text string) {
 	if VideoMonochrome {
 		color = colorToBw(color)
 	}
-	platform.VideoWriteText(x, y, color, text)
+	IVideoWriteText(x, y, color, text)
 }
 
 func VideoShowCursor() {
-	platform.VideoSetCursorVisible(true)
+	IVideoSetCursorVisible(true)
 }
 
 func VideoHideCursor() {
-	platform.VideoSetCursorVisible(false)
-}
-
-func VideoUninstall() {
-	platform.VideoUninstall()
-}
-
-func VideoMove(x, y, width int16, buffer *[]byte, toVideo bool) {
-	platform.VideoMove(x, y, width, buffer, toVideo)
+	IVideoSetCursorVisible(false)
 }

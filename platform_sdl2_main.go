@@ -1,6 +1,6 @@
 //go:build sdl2
 
-package platform
+package main
 
 import (
 	_ "embed"
@@ -75,7 +75,8 @@ func Idle(mode IdleMode) {
 }
 
 func Delay(ms uint32) {
-	sdl.Delay(ms)
+	// sdl.Delay(ms)
+	time.Sleep(time.Duration(ms) * time.Millisecond)
 }
 
 func updateSdlEvents() {
@@ -88,7 +89,7 @@ func updateSdlEvents() {
 	}
 }
 
-func PlatformMain(mainFunc func()) {
+func main() {
 	var err error
 	runtime.LockOSThread()
 	if runtime.NumCPU() > 2 {
@@ -142,7 +143,7 @@ func PlatformMain(mainFunc func()) {
 	}()
 
 	go func() {
-		mainFunc()
+		ZZTMain()
 		close(mainTaskQueue)
 	}()
 

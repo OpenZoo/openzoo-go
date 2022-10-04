@@ -1,6 +1,6 @@
 //go:build dummy
 
-package platform
+package main
 
 var KeysLeftShiftHeld = false
 var KeysRightShiftHeld = false
@@ -48,19 +48,19 @@ func Delay(ms uint32) {
 	// no-op
 }
 
-func VideoInstall(columns int) {
+func IVideoInstall(columns int) {
 	// no-op
 }
 
-func VideoClrScr(backgroundColor uint8) {
+func IVideoClrScr(backgroundColor uint8) {
 	// no-op
 }
 
-func VideoWriteText(x, y int16, color byte, text string) {
+func IVideoWriteText(x, y int16, color byte, text string) {
 	// no-op
 }
 
-func VideoSetCursorVisible(v bool) {
+func IVideoSetCursorVisible(v bool) {
 	// no-op
 }
 
@@ -82,6 +82,6 @@ func ReadKey() byte {
 	return 0
 }
 
-func PlatformMain(mainFunc func()) {
-	mainFunc()
+func main() {
+	ZZTMain()
 }

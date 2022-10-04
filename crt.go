@@ -2,9 +2,6 @@ package main
 
 import (
 	"strings"
-	"time"
-
-	"github.com/OpenZoo/openzoo-go/platform"
 )
 
 // Pascal shims - Crt procedures on top of Platform
@@ -55,7 +52,7 @@ func GotoXY(x, y int) {
 func ClrScr() {
 	line := strings.Repeat(" ", windowMaxX-windowMinX+1)
 	for iy := windowMinY; iy <= windowMaxY; iy++ {
-		platform.VideoWriteText(int16(windowMinX-1), int16(iy-1), TextAttr, line)
+		IVideoWriteText(int16(windowMinX-1), int16(iy-1), TextAttr, line)
 	}
 }
 
@@ -79,7 +76,7 @@ func Write(s string) {
 				// TODO: scroll up
 			}
 		default:
-			platform.VideoWriteText(int16(cursorX)-1, int16(cursorY)-1, TextAttr, s[i:i+1])
+			IVideoWriteText(int16(cursorX)-1, int16(cursorY)-1, TextAttr, s[i:i+1])
 			cursorX++
 			if cursorX > windowMaxX {
 				Write("\r\n")
@@ -91,29 +88,4 @@ func Write(s string) {
 func WriteLn(s string) {
 	Write(s)
 	Write("\r\n")
-}
-
-func KeyPressed() bool {
-	return platform.KeyPressed()
-}
-
-func ReadKey() byte {
-	return platform.ReadKey()
-}
-
-func NoSound() {
-	platform.NoSound()
-}
-
-func Sound(freq uint16) {
-	platform.Sound(freq)
-}
-
-func SetCBreak(v bool) {
-	platform.SetCBreak(v)
-}
-
-func Delay(ms uint32) {
-	// platform.Delay(ms)
-	time.Sleep(time.Duration(ms) * time.Millisecond)
 }

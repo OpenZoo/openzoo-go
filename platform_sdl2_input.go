@@ -1,41 +1,11 @@
 //go:build sdl2
 
-package platform
+package main
 
 import (
 	"sync"
 
 	"github.com/veandco/go-sdl2/sdl"
-)
-
-// TODO: remove duplicate
-const (
-	KEY_BACKSPACE = '\x08'
-	KEY_TAB       = '\t'
-	KEY_ENTER     = '\r'
-	KEY_CTRL_Y    = '\x19'
-	KEY_ESCAPE    = '\x1b'
-	KEY_ALT_P     = '\x99'
-	KEY_F1        = '\xbb'
-	KEY_F2        = '\xbc'
-	KEY_F3        = '\xbd'
-	KEY_F4        = '\xbe'
-	KEY_F5        = '\xbf'
-	KEY_F6        = '\xc0'
-	KEY_F7        = '\xc1'
-	KEY_F8        = '\xc2'
-	KEY_F9        = '\xc3'
-	KEY_F10       = '\xc4'
-	KEY_UP        = '\xc8'
-	KEY_PAGE_UP   = '\xc9'
-	KEY_LEFT      = '\xcb'
-	KEY_RIGHT     = '\xcd'
-	KEY_DOWN      = '\xd0'
-	KEY_PAGE_DOWN = '\xd1'
-	KEY_INSERT    = '\xd2'
-	KEY_DELETE    = '\xd3'
-	KEY_HOME      = '\xc7'
-	KEY_END       = '\xcf'
 )
 
 var pcScancodeMap = []byte{
@@ -56,11 +26,10 @@ var pcScancodeMap = []byte{
 
 var KeyQueueLock = sync.Mutex{}
 var KeyQueue = make([]byte, 0)
-var KeysLeftShiftHeld = false
-var KeysRightShiftHeld = false
-var KeysShiftHeld = false
-var KeysCtrlHeld = false
-var KeysAltHeld = false
+
+func KeysUpdateModifiers() {
+	// stub
+}
 
 func ParseSDLKeyboardEvent(e *sdl.KeyboardEvent) {
 	KeysLeftShiftHeld = (e.Keysym.Mod & sdl.KMOD_LSHIFT) != 0

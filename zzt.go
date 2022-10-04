@@ -3,8 +3,6 @@ package main
 import (
 	"bufio"
 	"os"
-
-	"github.com/OpenZoo/openzoo-go/platform"
 )
 
 // uses: Crt, Dos, Video, Keys, Sounds, Input, TxtWind, GameVars, Elements, Editor, Oop, Game
@@ -154,8 +152,4 @@ func ZZTMain() {
 		WriteLn("")
 	}
 	VideoShowCursor()
-}
-
-func main() {
-	platform.PlatformMain(ZZTMain)
 }

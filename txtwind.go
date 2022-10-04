@@ -6,8 +6,6 @@ import (
 	"io"
 	"os"
 	"strings"
-
-	"github.com/OpenZoo/openzoo-go/platform"
 ) // interface uses: Video
 
 const (
@@ -237,7 +235,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 	state.Hyperlink = ""
 	TextWindowDraw(state, false, viewingFile)
 	for {
-		platform.Idle(platform.IMUntilFrame)
+		Idle(IMUntilFrame)
 		InputUpdate()
 		newLinePos = state.LinePos
 		if InputDeltaY != 0 {

@@ -3,8 +3,6 @@ package main // unit: Sounds
 import (
 	"math"
 	"strings"
-
-	"github.com/OpenZoo/openzoo-go/platform"
 )
 
 type TDrumData struct {
@@ -115,7 +113,7 @@ func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bo
 		hSecsDiff  uint16
 		hSecsTotal int16
 	)
-	hSecsTotal = int16(platform.TimerTicks() * 11 / 2)
+	hSecsTotal = int16(TimerTicks() * 11 / 2)
 	hSecsDiff = uint16(hSecsTotal - *counter)
 	if hSecsDiff >= uint16(duration) {
 		SoundHasTimeElapsed = true

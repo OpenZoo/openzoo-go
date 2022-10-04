@@ -8,8 +8,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-
-	"github.com/OpenZoo/openzoo-go/platform"
 )
 
 const (
@@ -360,7 +358,7 @@ func SidebarPromptSlider(editable bool, x, y int16, prompt string, value *byte) 
 				Delay(45)
 			}
 			VideoWriteText(x+int16(*value)+1, y+1, 0x9F, "\x1f")
-			platform.Idle(platform.IMUntilFrame)
+			Idle(IMUntilFrame)
 			InputUpdate()
 			if InputKeyPressed >= '1' && InputKeyPressed <= '9' {
 				*value = byte(InputKeyPressed) - 49
@@ -985,7 +983,7 @@ func GameUpdateSidebar() {
 			VideoWriteText(65, 15, 0x1F, " Be noisy")
 		}
 		if DebugEnabled {
-			numStr = Str(platform.MemAvail())
+			numStr = Str(MemAvail())
 			VideoWriteText(69, 4, 0x1E, "m"+numStr+" ")
 		}
 	}
@@ -1335,7 +1333,7 @@ func GamePlayLoop(boardChanged bool) {
 				}
 			}
 			VideoWriteText(64, 5, 0x1F, "Pausing...")
-			platform.Idle(platform.IMUntilFrame)
+			Idle(IMUntilFrame)
 			InputUpdate()
 			if InputKeyPressed == KEY_ESCAPE {
 				GamePromptEndPlay()
@@ -1380,7 +1378,7 @@ func GamePlayLoop(boardChanged bool) {
 				CurrentStatTicked = 0
 				InputUpdate()
 			} else {
-				platform.Idle(platform.IMUntilPit)
+				Idle(IMUntilPit)
 			}
 		}
 		if (exitLoop || GamePlayExitRequested) && GamePlayExitRequested {

@@ -1,6 +1,6 @@
 //go:build sdl2
 
-package platform
+package main
 
 import (
 	"C"
@@ -59,13 +59,13 @@ func redrawChar(ix, iy int) {
 	VideoSurface.Unlock()
 }
 
-func VideoInstall(columns int) {
+func IVideoInstall(columns int) {
 	MainThreadSync(func() {
 		textColumns = columns
 	})
 }
 
-func VideoClrScr(backgroundColor uint8) {
+func IVideoClrScr(backgroundColor uint8) {
 	MainThreadAsync(func() {
 		for iy := 0; iy < 25; iy++ {
 			for ix := 0; ix < textColumns; ix++ {
@@ -78,7 +78,7 @@ func VideoClrScr(backgroundColor uint8) {
 	})
 }
 
-func VideoWriteText(x, y int16, color byte, text string) {
+func IVideoWriteText(x, y int16, color byte, text string) {
 	MainThreadAsync(func() {
 		for i := 0; i < len(text); i++ {
 			textBuffer[y][x*2] = text[i]
@@ -97,7 +97,7 @@ func VideoWriteText(x, y int16, color byte, text string) {
 	})
 }
 
-func VideoSetCursorVisible(v bool) {
+func IVideoSetCursorVisible(v bool) {
 	MainThreadSync(func() {
 		// stub
 	})
