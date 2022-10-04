@@ -500,8 +500,10 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 		defer f.Close()
 		scanner := bufio.NewScanner(f)
 		for scanner.Scan() {
-			state.LineCount++
-			state.Lines[state.LineCount-1] = scanner.Text()
+			for _, l := range strings.Split(scanner.Text(), "\r") {
+				state.LineCount++
+				state.Lines[state.LineCount-1] = l
+			}
 		}
 		return scanner.Err()
 	} else {
