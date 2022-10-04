@@ -728,14 +728,16 @@ func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 	)
 	stat := Board.Stats(statId)
 	TextWindowInitState(state)
-	dataPtr = bytes.NewReader(*stat.Data)
-	for i = 0; i <= stat.DataLen; i++ {
-		ReadPByte(dataPtr, &dataChr)
-		if dataChr == KEY_ENTER {
-			TextWindowAppend(state, dataStr.String())
-			dataStr.Reset()
-		} else {
-			dataStr.WriteByte(dataChr)
+	if stat.Data != nil {
+		dataPtr = bytes.NewReader(*stat.Data)
+		for i = 0; i < stat.DataLen; i++ {
+			ReadPByte(dataPtr, &dataChr)
+			if dataChr == KEY_ENTER {
+				TextWindowAppend(state, dataStr.String())
+				dataStr.Reset()
+			} else {
+				dataStr.WriteByte(dataChr)
+			}
 		}
 	}
 }

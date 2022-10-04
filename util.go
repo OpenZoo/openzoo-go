@@ -119,6 +119,10 @@ func StrWidth[T constraints.Integer](v T, minLength int) string {
 }
 
 func Copy(s string, start int16, length int16) string {
+	if length <= 0 {
+		return ""
+	}
+
 	start -= 1
 
 	if len(s) <= int(start+length) {

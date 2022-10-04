@@ -90,7 +90,8 @@ func updateSdlEvents() {
 		switch e := event.(type) {
 		case *sdl.KeyboardEvent:
 			ParseSDLKeyboardEvent(e)
-			break
+		case *sdl.TextInputEvent:
+			ParseSDLTextInputEvent(e)
 		}
 	}
 }
@@ -158,6 +159,9 @@ func main() {
 	}
 	defer sdl.CloseAudio()
 	sdl.PauseAudio(false)
+
+	sdl.StartTextInput()
+	defer sdl.StopTextInput()
 
 	go func() {
 		for {

@@ -189,7 +189,7 @@ func (a *AudioSimulatorState) Simulate(samples []byte) {
 				drum := SoundDrumTable[a.currentNote-240]
 				drumPos := a.currentNotePos / a.samplesPerDrum
 				if drumPos < len(drum) {
-					a.renderer.emitNote(a, a.currentNoteMax, int(drum[drumPos])<<8, freqTruncated, samples, &pos)
+					a.renderer.emitNote(a, (drumPos+1)*a.samplesPerDrum, int(drum[drumPos])<<8, freqTruncated, samples, &pos)
 				} else {
 					a.renderer.emitNote(a, a.currentNoteMax, 0, freqSilence, samples, &pos)
 				}

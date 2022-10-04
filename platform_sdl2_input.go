@@ -38,21 +38,31 @@ func ParseSDLKeyboardEvent(e *sdl.KeyboardEvent) {
 	KeysCtrlHeld = (e.Keysym.Mod & sdl.KMOD_CTRL) != 0
 	KeysAltHeld = (e.Keysym.Mod & sdl.KMOD_ALT) != 0
 
-	k := byte(0)
-	if KeysAltHeld && e.Keysym.Sym == 'p' {
-		k = KEY_ALT_P
-	} else if e.Keysym.Sym > 0 && e.Keysym.Sym < 127 {
-		k = byte(e.Keysym.Sym)
-	} else if e.Keysym.Scancode <= 83 {
-		k = byte(pcScancodeMap[e.Keysym.Scancode] + 128)
-	}
-
 	if e.Type == sdl.KEYDOWN {
-		KeyQueueLock.Lock()
-		defer KeyQueueLock.Unlock()
+		k := byte(0)
+		if KeysAltHeld && e.Keysym.Sym == 'p' {
+			k = KEY_ALT_P
+		} else if e.Keysym.Sym > 0 && e.Keysym.Sym < 127 {
+			k = byte(e.Keysym.Sym)
+		} else if e.Keysym.Scancode <= 83 {
+			k = byte(pcScancodeMap[e.Keysym.Scancode] + 128)
+		}
 
-		// KeyQueue = append(KeyQueue, k)
-		KeyQueue = []byte{k}
+		if ((k & 0x7F) != 0) && !(k >= 32 && k < 127) {
+			KeyQueueLock.Lock()
+			defer KeyQueueLock.Unlock()
+
+			// KeyQueue = append(KeyQueue, k)
+			KeyQueue = []byte{k}
+		}
+	}
+}
+
+func ParseSDLTextInputEvent(e *sdl.TextInputEvent) {
+	if e.Type == sdl.TEXTINPUT {
+		if e.Text[0] >= 32 && e.Text[0] < 127 {
+			KeyQueue = []byte{e.Text[0]}
+		}
 	}
 }
 

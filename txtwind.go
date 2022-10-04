@@ -242,12 +242,12 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 			newLinePos += InputDeltaY
 		} else if InputShiftPressed || InputKeyPressed == KEY_ENTER {
 			InputShiftAccepted = true
-			if state.Lines[state.LinePos-1][0] == '!' {
+			if len(state.Lines[state.LinePos-1]) > 0 && state.Lines[state.LinePos-1][0] == '!' {
 				pointerStr = Copy(state.Lines[state.LinePos-1], 2, Length(state.Lines[state.LinePos-1])-1)
 				if Pos(';', pointerStr) > 0 {
 					pointerStr = Copy(pointerStr, 1, Pos(';', pointerStr)-1)
 				}
-				if pointerStr[0] == '-' {
+				if len(pointerStr) > 0 && pointerStr[0] == '-' {
 					pointerStr = pointerStr[1:]
 					TextWindowFree(state)
 					TextWindowOpenFile(pointerStr, state)
@@ -304,7 +304,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 		if newLinePos != state.LinePos {
 			state.LinePos = newLinePos
 			TextWindowDraw(state, false, viewingFile)
-			if state.Lines[state.LinePos-1][0] == '!' {
+			if len(state.Lines[state.LinePos-1]) > 0 && state.Lines[state.LinePos-1][0] == '!' {
 				if hyperlinkAsSelect {
 					TextWindowDrawTitle(0x1E, "\xaePress ENTER to select this\xaf")
 				} else {
@@ -466,7 +466,7 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 	if retVal {
 		filename += ".HLP"
 	}
-	if filename[0] == '*' {
+	if len(filename) > 0 && filename[0] == '*' {
 		filename = Copy(filename, 2, Length(filename)-1)
 		entryPos = -1
 	} else {
