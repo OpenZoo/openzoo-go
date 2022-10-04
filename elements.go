@@ -583,10 +583,22 @@ func ElementTransporterTick(statId int16) {
 
 func ElementTransporterDraw(x, y int16, ch *byte) {
 	stat := Board.Stats(GetStatIdAt(x, y))
+	i := 0
+	if stat.Cycle > 0 {
+		i = (int(CurrentTick) / int(stat.Cycle)) & 3
+	}
+	*ch = 0
+
 	if stat.StepX == 0 {
-		*ch = TransporterNSChars[stat.StepY*2+3+CurrentTick/stat.Cycle%4-1]
+		i = int(stat.StepY)*2 + 2 + i
+		if i >= 0 && i < 8 {
+			*ch = TransporterNSChars[i]
+		}
 	} else {
-		*ch = TransporterEWChars[stat.StepX*2+3+CurrentTick/stat.Cycle%4-1]
+		i = int(stat.StepX)*2 + 2 + i
+		if i >= 0 && i < 8 {
+			*ch = TransporterEWChars[i]
+		}
 	}
 }
 
