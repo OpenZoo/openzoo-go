@@ -2,12 +2,17 @@
 
 package main
 
+// typedef unsigned char Uint8;
+// void ZooSdlAudioCallback(void *userdata, Uint8 *stream, int len);
+import "C"
 import (
 	_ "embed"
+	"reflect"
 	"runtime"
 	"sync"
 	"sync/atomic"
 	"time"
+	"unsafe"
 
 	"github.com/veandco/go-sdl2/sdl"
 )
@@ -23,7 +28,8 @@ var mainTaskQueue = make(chan func())
 var FrameTickCond = sync.NewCond(&sync.Mutex{})
 var PitTickCond = sync.NewCond(&sync.Mutex{})
 var VideoWindow *sdl.Window
-var VideoSurface *sdl.Surface
+var VideoRenderer *sdl.Renderer
+var VideoZTexture *sdl.Texture
 var VideoUpdateRequested atomic.Bool
 var timerTicks int
 
@@ -89,6 +95,15 @@ func updateSdlEvents() {
 	}
 }
 
+//export ZooSdlAudioCallback
+func ZooSdlAudioCallback(userdata unsafe.Pointer, stream *C.Uint8, length C.int) {
+	n := int(length)
+	hdr := reflect.SliceHeader{Data: uintptr(unsafe.Pointer(stream)), Len: n, Cap: n}
+	buf := *(*[]byte)(unsafe.Pointer(&hdr))
+
+	CurrentAudioSimulator.Simulate(buf)
+}
+
 func main() {
 	var err error
 	runtime.LockOSThread()
@@ -108,32 +123,56 @@ func main() {
 	}
 	defer VideoWindow.Destroy()
 
-	// TODO: VideoSurface, err = sdl.CreateRGBSurface(0, 640, 350, 32, 0, 0, 0, 0)
-	VideoSurface, err = VideoWindow.GetSurface()
+	VideoRenderer, err = sdl.CreateRenderer(VideoWindow, -1, 0)
 	if err != nil {
 		panic(err)
 	}
+	defer VideoRenderer.Destroy()
+
+	VideoZTexture, err = VideoRenderer.CreateTexture(uint32(sdl.PIXELFORMAT_ABGR32), sdl.TEXTUREACCESS_STREAMING, 640, 350)
+	if err != nil {
+		panic(err)
+	}
+	defer VideoZTexture.Destroy()
 
 	/* file, _ := os.Create("./cpu.pprof")
 	pprof.StartCPUProfile(file)
 	defer pprof.StopCPUProfile() */
 
-	frameTicker := time.NewTicker(16667 * time.Microsecond)
+	frameTicker := time.NewTicker(16666667 * time.Nanosecond)
 	pitTicker := time.NewTicker(55 * time.Millisecond)
+	blinkTicker := time.NewTicker(266666667 * time.Nanosecond)
 	tickerDone := make(chan bool)
+
+	CurrentAudioSimulator = NewAudioSimulatorNearest(48000, byte(32))
+	audioSpec := sdl.AudioSpec{
+		Freq:     48000,
+		Format:   sdl.AUDIO_U8,
+		Channels: 1,
+		Samples:  2048,
+		Callback: sdl.AudioCallback(C.ZooSdlAudioCallback),
+	}
+	err = sdl.OpenAudio(&audioSpec, nil)
+	if err != nil {
+		panic(err)
+	}
+	defer sdl.CloseAudio()
+	sdl.PauseAudio(false)
 
 	go func() {
 		for {
 			select {
+			case <-blinkTicker.C:
+				MainThreadAsync(ZooSdlToggleBlinkChars)
 			case <-frameTicker.C:
-				MainThreadSync(updateSdlEvents)
-				if VideoUpdateRequested.Swap(false) {
-					MainThreadSync(func() {
-						VideoWindow.UpdateSurface()
-					})
-				}
+				MainThreadAsync(updateSdlEvents)
+				MainThreadAsync(func() {
+					VideoRenderer.Copy(VideoZTexture, nil, nil)
+					VideoRenderer.Present()
+				})
 				FrameTickCond.Broadcast()
 			case <-pitTicker.C:
+				SoundTimerHandler()
 				timerTicks++
 				PitTickCond.Broadcast()
 			case <-tickerDone:
@@ -153,5 +192,6 @@ func main() {
 
 	frameTicker.Stop()
 	pitTicker.Stop()
+	blinkTicker.Stop()
 	tickerDone <- true
 }

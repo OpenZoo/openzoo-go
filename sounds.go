@@ -5,22 +5,17 @@ import (
 	"strings"
 )
 
-type TDrumData struct {
-	Len  int16
-	Data [255]uint16
-}
-
 var (
 	SoundEnabled            bool
 	SoundBlockQueueing      bool
 	SoundCurrentPriority    int16
-	SoundFreqTable          [255]uint16
+	SoundFreqTable          [255]uint32
 	SoundDurationMultiplier byte
 	SoundDurationCounter    byte
 	SoundBuffer             string
 	SoundBufferPos          int16
 	SoundIsPlaying          bool
-	SoundDrumTable          [10]TDrumData
+	SoundDrumTable          [10][]uint16
 )
 
 // implementation uses: Crt, Dos
@@ -32,11 +27,17 @@ func SoundQueue(priority int16, pattern string) {
 			SoundBuffer = pattern
 			SoundBufferPos = 1
 			SoundDurationCounter = 1
+			if CurrentAudioSimulator != nil {
+				CurrentAudioSimulator.Queue(pattern, true)
+			}
 		} else {
 			SoundBuffer = Copy(SoundBuffer, SoundBufferPos, Length(SoundBuffer)-SoundBufferPos+1)
 			SoundBufferPos = 1
 			if Length(SoundBuffer)+Length(pattern) < 255 {
 				SoundBuffer += pattern
+				if CurrentAudioSimulator != nil {
+					CurrentAudioSimulator.Queue(pattern, false)
+				}
 			}
 		}
 		SoundIsPlaying = true
@@ -49,7 +50,7 @@ func SoundClearQueue() {
 	NoSound()
 }
 
-func SoundInitFreqTable() {
+func SoundInitFreqTable(highQuality bool) {
 	var (
 		octave, note               int16
 		freqC1, noteStep, noteBase float64
@@ -59,7 +60,11 @@ func SoundInitFreqTable() {
 	for octave = 1; octave <= 15; octave++ {
 		noteBase = math.Exp(float64(octave)*math.Ln2) * freqC1
 		for note = 0; note <= 11; note++ {
-			SoundFreqTable[octave*16+note-1] = uint16(math.Floor(noteBase))
+			if highQuality {
+				SoundFreqTable[octave*16+note] = uint32(math.Round(noteBase * 256))
+			} else {
+				SoundFreqTable[octave*16+note] = uint32(math.Floor(noteBase) * 256)
+			}
 			noteBase = noteBase * noteStep
 		}
 	}
@@ -67,42 +72,41 @@ func SoundInitFreqTable() {
 
 func SoundInitDrumTable() {
 	var i int16
-	SoundDrumTable[0].Len = 1
-	SoundDrumTable[0].Data[0] = 3200
+	SoundDrumTable[0] = []uint16{3200}
 	for i = 1; i <= 9; i++ {
-		SoundDrumTable[i].Len = 14
+		SoundDrumTable[i] = make([]uint16, 14)
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[1].Data[i-1] = uint16(i*100 + 1000)
-	}
-	for i = 1; i <= 16; i++ {
-		SoundDrumTable[2].Data[i-1] = uint16(i%2*1600 + 1600 + i%4*1600)
+		SoundDrumTable[1][i-1] = uint16(i*100 + 1000)
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[4].Data[i-1] = uint16(Random(5000) + 500)
-	}
-	for i = 1; i <= 8; i++ {
-		SoundDrumTable[5].Data[i*2-1-1] = 1600
-		SoundDrumTable[5].Data[i*2-1] = uint16(Random(1600) + 800)
+		SoundDrumTable[2][i-1] = uint16(i%2*1600 + 1600 + i%4*1600)
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[6].Data[i-1] = uint16(i%2*880 + 880 + i%3*440)
+		SoundDrumTable[4][i-1] = uint16(Random(5000) + 500)
+	}
+	for i = 1; i <= 7; i++ {
+		SoundDrumTable[5][i*2-1-1] = 1600
+		SoundDrumTable[5][i*2-1] = uint16(Random(1600) + 800)
+	}
+	Random(1600) // ensure RNG matches
+	for i = 1; i <= 14; i++ {
+		SoundDrumTable[6][i-1] = uint16(i%2*880 + 880 + i%3*440)
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[7].Data[i-1] = uint16(700 - i*12)
+		SoundDrumTable[7][i-1] = uint16(700 - i*12)
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[8].Data[i-1] = uint16(i*20 + 1200 - Random(i*40))
+		SoundDrumTable[8][i-1] = uint16(i*20 + 1200 - Random(i*40))
 	}
 	for i = 1; i <= 14; i++ {
-		SoundDrumTable[9].Data[i-1] = uint16(Random(440) + 220)
+		SoundDrumTable[9][i-1] = uint16(Random(440) + 220)
 	}
 }
 
-func SoundPlayDrum(drum *TDrumData) {
-	var i int16
-	for i = 1; i <= drum.Len; i++ {
-		Sound(drum.Data[i-1])
+func SoundPlayDrum(drum []uint16) {
+	for i := 0; i < len(drum); i++ {
+		Sound(drum[i])
 		Delay(1)
 	}
 	NoSound()
@@ -139,9 +143,9 @@ func SoundTimerHandler() {
 				if SoundBuffer[SoundBufferPos-1] == '\x00' {
 					NoSound()
 				} else if SoundBuffer[SoundBufferPos-1] < '\xf0' {
-					Sound(SoundFreqTable[SoundBuffer[SoundBufferPos-1]-1])
+					Sound(uint16(SoundFreqTable[SoundBuffer[SoundBufferPos-1]-1] >> 8))
 				} else {
-					SoundPlayDrum(&SoundDrumTable[SoundBuffer[SoundBufferPos-1]-240])
+					SoundPlayDrum(SoundDrumTable[SoundBuffer[SoundBufferPos-1]-240])
 				}
 
 				SoundBufferPos++
@@ -151,6 +155,9 @@ func SoundTimerHandler() {
 		}
 	}
 
+	if CurrentAudioSimulator != nil {
+		CurrentAudioSimulator.OnPitTick()
+	}
 }
 
 func SoundUninstall() {
@@ -264,7 +271,7 @@ func SoundParse(input string) (SoundParse string) {
 }
 
 func init() {
-	SoundInitFreqTable()
+	SoundInitFreqTable(true)
 	SoundInitDrumTable()
 	SoundEnabled = true
 	SoundBlockQueueing = false

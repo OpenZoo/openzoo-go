@@ -5,31 +5,36 @@ package main
 import (
 	"C"
 	_ "embed"
-	"image/color"
+)
+import (
+	"unsafe"
+
+	"github.com/veandco/go-sdl2/sdl"
 )
 
 //go:embed ascii.chr
 var charsetData []byte
 var textBuffer [25][160]byte
 var textColumns int = 80
+var blinkState bool = false
 
-var palette = []color.RGBA{
-	{0x00, 0x00, 0x00, 255},
-	{0x00, 0x00, 0xAA, 255},
-	{0x00, 0xAA, 0x00, 255},
-	{0x00, 0xAA, 0xAA, 255},
-	{0xAA, 0x00, 0x00, 255},
-	{0xAA, 0x00, 0xAA, 255},
-	{0xAA, 0x55, 0x00, 255},
-	{0xAA, 0xAA, 0xAA, 255},
-	{0x55, 0x55, 0x55, 255},
-	{0x55, 0x55, 0xFF, 255},
-	{0x55, 0xFF, 0x55, 255},
-	{0x55, 0xFF, 0xFF, 255},
-	{0xFF, 0x55, 0x55, 255},
-	{0xFF, 0x55, 0xFF, 255},
-	{0xFF, 0xFF, 0x55, 255},
-	{0xFF, 0xFF, 0xFF, 255},
+var palette = []uint32{
+	0x000000FF,
+	0x0000AAFF,
+	0x00AA00FF,
+	0x00AAAAFF,
+	0xAA0000FF,
+	0xAA00AAFF,
+	0xAA5500FF,
+	0xAAAAAAFF,
+	0x555555FF,
+	0x5555FFFF,
+	0x55FF55FF,
+	0x55FFFFFF,
+	0xFF5555FF,
+	0xFF55FFFF,
+	0xFFFF55FF,
+	0xFFFFFFFF,
 }
 
 func redrawChar(ix, iy int) {
@@ -37,10 +42,19 @@ func redrawChar(ix, iy int) {
 
 	px := ix * 8
 	py := iy * 14
-	VideoSurface.Lock()
+	data, pitch, err := VideoZTexture.Lock(&sdl.Rect{X: int32(px), Y: int32(py), W: 8, H: 14})
+	if err != nil {
+		return
+	}
 
 	ch := int(textBuffer[iy][ix*2]) * 14
 	co := textBuffer[iy][ix*2+1]
+	if co >= 0x80 {
+		co &= 0x7F
+		if blinkState {
+			co = (co >> 4) * 0x11
+		}
+	}
 	coBg := palette[co>>4]
 	coFg := palette[co&0xF]
 
@@ -48,15 +62,26 @@ func redrawChar(ix, iy int) {
 		c := charsetData[ch+ly]
 		for lx := 0; lx < 8; lx++ {
 			if (c & 0x80) != 0 {
-				VideoSurface.Set(px+lx, py+ly, coFg)
+				*(*uint32)(unsafe.Pointer(&data[ly*pitch+lx*4])) = coFg
 			} else {
-				VideoSurface.Set(px+lx, py+ly, coBg)
+				*(*uint32)(unsafe.Pointer(&data[ly*pitch+lx*4])) = coBg
 			}
 			c <<= 1
 		}
 	}
 
-	VideoSurface.Unlock()
+	VideoZTexture.Unlock()
+}
+
+func ZooSdlToggleBlinkChars() {
+	blinkState = !blinkState
+	for iy := 0; iy < 25; iy++ {
+		for ix := 0; ix < textColumns; ix++ {
+			if textBuffer[iy][ix*2+1] >= 0x81 {
+				redrawChar(ix, iy)
+			}
+		}
+	}
 }
 
 func IVideoInstall(columns int) {
