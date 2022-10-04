@@ -2,12 +2,6 @@
 
 package main
 
-var KeysLeftShiftHeld = false
-var KeysRightShiftHeld = false
-var KeysShiftHeld = false
-var KeysCtrlHeld = false
-var KeysAltHeld = false
-
 type IdleMode int
 
 const (
@@ -69,6 +63,10 @@ func VideoUninstall() {
 }
 
 func VideoMove(x, y, width int16, buffer *[]byte, toVideo bool) {
+	// no-op
+}
+
+func KeysUpdateModifiers() {
 	// no-op
 }
 

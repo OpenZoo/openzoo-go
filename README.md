@@ -12,4 +12,4 @@ Dependencies:
 Commands:
 
     $ go generate
-    $ go build -x
+    $ go build -x -tags sdl2
