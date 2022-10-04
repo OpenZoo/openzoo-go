@@ -159,6 +159,14 @@ func SoundUninstall() {
 	// stub SetIntVec(0x1C, SoundOldVector)
 }
 
+func SoundCountTicks(pattern string) int {
+	ticks := 0
+	for i := 1; i < len(pattern); i += 2 {
+		ticks += int(byte(pattern[i]))
+	}
+	return ticks
+}
+
 func SoundParse(input string) (SoundParse string) {
 	var (
 		noteOctave   int16
@@ -166,10 +174,6 @@ func SoundParse(input string) (SoundParse string) {
 		output       strings.Builder
 		noteTone     int16
 	)
-	AdvanceInput := func() {
-		input = Copy(input, 2, Length(input)-1)
-	}
-
 	noteOctave = 3
 	noteDuration = 1
 	for Length(input) != 0 {
@@ -177,70 +181,70 @@ func SoundParse(input string) (SoundParse string) {
 		switch UpCase(input[0]) {
 		case 'T':
 			noteDuration = 1
-			AdvanceInput()
+			input = input[1:]
 		case 'S':
 			noteDuration = 2
-			AdvanceInput()
+			input = input[1:]
 		case 'I':
 			noteDuration = 4
-			AdvanceInput()
+			input = input[1:]
 		case 'Q':
 			noteDuration = 8
-			AdvanceInput()
+			input = input[1:]
 		case 'H':
 			noteDuration = 16
-			AdvanceInput()
+			input = input[1:]
 		case 'W':
 			noteDuration = 32
-			AdvanceInput()
+			input = input[1:]
 		case '.':
 			noteDuration = noteDuration * 3 / 2
-			AdvanceInput()
+			input = input[1:]
 		case '3':
 			noteDuration = noteDuration / 3
-			AdvanceInput()
+			input = input[1:]
 		case '+':
 			if noteOctave < 6 {
 				noteOctave++
 			}
-			AdvanceInput()
+			input = input[1:]
 		case '-':
 			if noteOctave > 1 {
 				noteOctave--
 			}
-			AdvanceInput()
+			input = input[1:]
 		case 'A', 'B', 'C', 'D', 'E', 'F', 'G':
 			switch UpCase(input[0]) {
 			case 'C':
 				noteTone = 0
-				AdvanceInput()
+				input = input[1:]
 			case 'D':
 				noteTone = 2
-				AdvanceInput()
+				input = input[1:]
 			case 'E':
 				noteTone = 4
-				AdvanceInput()
+				input = input[1:]
 			case 'F':
 				noteTone = 5
-				AdvanceInput()
+				input = input[1:]
 			case 'G':
 				noteTone = 7
-				AdvanceInput()
+				input = input[1:]
 			case 'A':
 				noteTone = 9
-				AdvanceInput()
+				input = input[1:]
 			case 'B':
 				noteTone = 11
-				AdvanceInput()
+				input = input[1:]
 			}
 			if len(input) > 0 {
 				switch UpCase(input[0]) {
 				case '!':
 					noteTone--
-					AdvanceInput()
+					input = input[1:]
 				case '#':
 					noteTone++
-					AdvanceInput()
+					input = input[1:]
 				}
 			}
 			output.WriteByte(byte(noteOctave*0x10 + noteTone))
@@ -248,13 +252,13 @@ func SoundParse(input string) (SoundParse string) {
 		case 'X':
 			output.WriteByte(0x00)
 			output.WriteByte(byte(noteDuration))
-			AdvanceInput()
+			input = input[1:]
 		case '0', '1', '2', '4', '5', '6', '7', '8', '9':
 			output.WriteByte(input[0] + 0xF0 - '0')
 			output.WriteByte(byte(noteDuration))
-			AdvanceInput()
+			input = input[1:]
 		default:
-			AdvanceInput()
+			input = input[1:]
 		}
 	}
 	SoundParse = output.String()

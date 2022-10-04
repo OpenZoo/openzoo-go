@@ -1,12 +1,11 @@
+//go:build sdl2
+
 package platform
 
 import (
 	"C"
 	_ "embed"
 	"image/color"
-)
-import (
-	"github.com/veandco/go-sdl2/sdl"
 )
 
 //go:embed ascii.chr
@@ -61,13 +60,13 @@ func redrawChar(ix, iy int) {
 }
 
 func VideoInstall(columns int) {
-	sdl.Do(func() {
+	MainThreadSync(func() {
 		textColumns = columns
 	})
 }
 
 func VideoClrScr(backgroundColor uint8) {
-	sdl.Do(func() {
+	MainThreadAsync(func() {
 		for iy := 0; iy < 25; iy++ {
 			for ix := 0; ix < textColumns; ix++ {
 				textBuffer[iy][ix*2] = ' '
@@ -80,7 +79,7 @@ func VideoClrScr(backgroundColor uint8) {
 }
 
 func VideoWriteText(x, y int16, color byte, text string) {
-	sdl.Do(func() {
+	MainThreadAsync(func() {
 		for i := 0; i < len(text); i++ {
 			textBuffer[y][x*2] = text[i]
 			textBuffer[y][x*2+1] = color
@@ -99,20 +98,20 @@ func VideoWriteText(x, y int16, color byte, text string) {
 }
 
 func VideoSetCursorVisible(v bool) {
-	sdl.Do(func() {
+	MainThreadSync(func() {
 		// stub
 	})
 }
 
 func VideoUninstall() {
-	sdl.Do(func() {
+	MainThreadSync(func() {
 		// stub
 	})
 }
 
 func VideoMove(x, y, width int16, buffer *[]byte, toVideo bool) {
 	if toVideo {
-		sdl.Do(func() {
+		MainThreadAsync(func() {
 			if buffer != nil {
 				if width > int16(len(*buffer)>>1) {
 					width = int16(len(*buffer) >> 1)
@@ -128,6 +127,10 @@ func VideoMove(x, y, width int16, buffer *[]byte, toVideo bool) {
 			VideoUpdateRequested.Store(true)
 		})
 	} else {
+		// wait for all async video writes to end
+		MainThreadSync(func() {
+
+		})
 		*buffer = make([]byte, width*2)
 		copy(*buffer, textBuffer[y][x*2:(x+width)*2])
 	}

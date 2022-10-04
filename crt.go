@@ -2,6 +2,7 @@ package main
 
 import (
 	"strings"
+	"time"
 
 	"github.com/OpenZoo/openzoo-go/platform"
 )
@@ -113,5 +114,6 @@ func SetCBreak(v bool) {
 }
 
 func Delay(ms uint32) {
-	platform.Delay(ms)
+	// platform.Delay(ms)
+	time.Sleep(time.Duration(ms) * time.Millisecond)
 }

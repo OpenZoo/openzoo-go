@@ -1,3 +1,5 @@
+//go:build sdl2
+
 package platform
 
 import (
@@ -17,12 +19,26 @@ const (
 	IMUntilFrame
 )
 
+var mainTaskQueue = make(chan func())
 var FrameTickCond = sync.NewCond(&sync.Mutex{})
 var PitTickCond = sync.NewCond(&sync.Mutex{})
 var VideoWindow *sdl.Window
 var VideoSurface *sdl.Surface
 var VideoUpdateRequested atomic.Bool
 var timerTicks int
+
+func MainThreadAsync(f func()) {
+	mainTaskQueue <- f
+}
+
+func MainThreadSync(f func()) {
+	done := make(chan bool, 1)
+	mainTaskQueue <- func() {
+		f()
+		done <- true
+	}
+	<-done
+}
 
 func TimerTicks() int {
 	return timerTicks
@@ -59,9 +75,7 @@ func Idle(mode IdleMode) {
 }
 
 func Delay(ms uint32) {
-	sdl.Do(func() {
-		sdl.Delay(ms)
-	})
+	sdl.Delay(ms)
 }
 
 func updateSdlEvents() {
@@ -74,56 +88,12 @@ func updateSdlEvents() {
 	}
 }
 
-func PlatformMain2(mainFunc func()) {
-	/* file, _ := os.Create("./cpu.pprof")
-	pprof.StartCPUProfile(file)
-	defer pprof.StopCPUProfile() */
-
-	frameTicker := time.NewTicker(16667 * time.Microsecond)
-	frameTickerDone := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-frameTicker.C:
-				sdl.Do(updateSdlEvents)
-				if VideoUpdateRequested.Swap(false) {
-					sdl.Do(func() {
-						VideoWindow.UpdateSurface()
-					})
-				}
-				FrameTickCond.Broadcast()
-			case <-frameTickerDone:
-				return
-			}
-		}
-	}()
-
-	pitTicker := time.NewTicker(55 * time.Millisecond)
-	pitTickerDone := make(chan bool)
-
-	go func() {
-		for {
-			select {
-			case <-pitTicker.C:
-				timerTicks++
-				PitTickCond.Broadcast()
-			case <-pitTickerDone:
-				return
-			}
-		}
-	}()
-
-	mainFunc()
-
-	pitTicker.Stop()
-	pitTickerDone <- true
-	frameTickerDone <- true
-}
-
 func PlatformMain(mainFunc func()) {
 	var err error
 	runtime.LockOSThread()
+	if runtime.NumCPU() > 2 {
+		runtime.GOMAXPROCS(2)
+	}
 
 	if err := sdl.Init(sdl.INIT_EVERYTHING); err != nil {
 		panic(err)
@@ -143,5 +113,44 @@ func PlatformMain(mainFunc func()) {
 		panic(err)
 	}
 
-	sdl.Main(func() { PlatformMain2(mainFunc) })
+	/* file, _ := os.Create("./cpu.pprof")
+	pprof.StartCPUProfile(file)
+	defer pprof.StopCPUProfile() */
+
+	frameTicker := time.NewTicker(16667 * time.Microsecond)
+	pitTicker := time.NewTicker(55 * time.Millisecond)
+	tickerDone := make(chan bool)
+
+	go func() {
+		for {
+			select {
+			case <-frameTicker.C:
+				MainThreadSync(updateSdlEvents)
+				if VideoUpdateRequested.Swap(false) {
+					MainThreadSync(func() {
+						VideoWindow.UpdateSurface()
+					})
+				}
+				FrameTickCond.Broadcast()
+			case <-pitTicker.C:
+				timerTicks++
+				PitTickCond.Broadcast()
+			case <-tickerDone:
+				return
+			}
+		}
+	}()
+
+	go func() {
+		mainFunc()
+		close(mainTaskQueue)
+	}()
+
+	for f := range mainTaskQueue {
+		f()
+	}
+
+	frameTicker.Stop()
+	pitTicker.Stop()
+	tickerDone <- true
 }

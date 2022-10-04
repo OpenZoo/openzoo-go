@@ -2,7 +2,6 @@ package main
 
 import (
 	"bufio"
-	"fmt"
 	"os"
 
 	"github.com/OpenZoo/openzoo-go/platform"
@@ -45,8 +44,6 @@ func GameConfigure() {
 			ConfigWorldFile = string(line)
 			line, _, _ = bf.ReadLine()
 			ConfigRegistration = string(line)
-			fmt.Println(ConfigWorldFile)
-			fmt.Println(ConfigRegistration)
 		}
 		f.Close()
 	}
