@@ -139,9 +139,7 @@ func ZZTMain() {
 		WorldCreate()
 		GameTitleLoop()
 	}
-	SoundUninstall()
 	SoundClearQueue()
-	VideoUninstall()
 	TextAttr = InitialTextAttr
 	ClrScr()
 	if Length(ConfigRegistration) == 0 {

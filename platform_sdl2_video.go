@@ -84,7 +84,7 @@ func ZooSdlToggleBlinkChars() {
 	}
 }
 
-func IVideoInstall(columns int) {
+func IVideoSetMode(columns int) {
 	MainThreadSync(func() {
 		textColumns = columns
 	})
@@ -123,12 +123,6 @@ func IVideoWriteText(x, y int16, color byte, text string) {
 }
 
 func IVideoSetCursorVisible(v bool) {
-	MainThreadSync(func() {
-		// stub
-	})
-}
-
-func VideoUninstall() {
 	MainThreadSync(func() {
 		// stub
 	})

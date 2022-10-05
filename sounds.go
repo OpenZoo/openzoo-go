@@ -160,10 +160,6 @@ func SoundTimerHandler() {
 	}
 }
 
-func SoundUninstall() {
-	// stub SetIntVec(0x1C, SoundOldVector)
-}
-
 func SoundCountTicks(pattern string) int {
 	ticks := 0
 	for i := 1; i < len(pattern); i += 2 {

@@ -42,7 +42,7 @@ func Delay(ms uint32) {
 	// no-op
 }
 
-func IVideoInstall(columns int) {
+func IVideoSetMode(columns int) {
 	// no-op
 }
 
@@ -55,10 +55,6 @@ func IVideoWriteText(x, y int16, color byte, text string) {
 }
 
 func IVideoSetCursorVisible(v bool) {
-	// no-op
-}
-
-func VideoUninstall() {
 	// no-op
 }
 

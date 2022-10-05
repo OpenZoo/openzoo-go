@@ -6,7 +6,7 @@ func VideoInstall(columns int, backgroundColor uint8) {
 	if VideoMonochrome {
 		backgroundColor = 0
 	}
-	IVideoInstall(columns)
+	IVideoSetMode(columns)
 	IVideoClrScr(backgroundColor)
 }
 
