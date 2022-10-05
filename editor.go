@@ -171,7 +171,7 @@ func EditorLoop() {
 	}
 
 	EditorPrepareModifyStatAtCursor := func() (EditorPrepareModifyStatAtCursor bool) {
-		if Board.StatCount < MAX_STAT {
+		if Board.Stats.Count < MAX_STAT {
 			EditorPrepareModifyStatAtCursor = EditorPrepareModifyTile(cursorX, cursorY)
 		} else {
 			EditorPrepareModifyStatAtCursor = false
@@ -290,7 +290,7 @@ func EditorLoop() {
 			state TTextWindowState
 			iLine int16
 		)
-		stat := Board.Stats(statId)
+		stat := Board.Stats.At(statId)
 		state.Title = prompt
 		TextWindowDrawOpen(&state)
 		state.Selectable = false
@@ -319,7 +319,7 @@ func EditorLoop() {
 			promptByte    byte
 		)
 		EditorEditStatSettings := func(selected bool) {
-			stat := Board.Stats(statId)
+			stat := Board.Stats.At(statId)
 			InputKeyPressed = '\x00'
 			iy = 9
 			if Length(ElementDefs[element].Param1Name) != 0 {
@@ -392,7 +392,7 @@ func EditorLoop() {
 			}
 		}
 
-		stat := Board.Stats(statId)
+		stat := Board.Stats.At(statId)
 		SidebarClear()
 		element = Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element
 		wasModified = true
@@ -408,7 +408,7 @@ func EditorLoop() {
 		EditorEditStatSettings(true)
 		if InputKeyPressed != KEY_ESCAPE {
 			copiedHasStat = true
-			copiedStat = *Board.Stats(statId)
+			copiedStat = *Board.Stats.At(statId)
 			copiedTile = Board.Tiles.Get(int16(stat.X), int16(stat.Y))
 			copiedX = int16(stat.X)
 			copiedY = int16(stat.Y)
@@ -559,7 +559,7 @@ func EditorLoop() {
 			}
 
 		}
-		tile := &Board.Tiles.TilesUnsafe[cursorX][cursorY]
+		tile := Board.Tiles.Pointer(cursorX, cursorY)
 		if InputShiftPressed || InputKeyPressed == ' ' {
 			InputShiftAccepted = true
 			if tile.Element == 0 || ElementDefs[tile.Element].PlaceableOnTop && copiedHasStat && cursorPattern > EditorPatternCount || InputDeltaX != 0 || InputDeltaY != 0 {
@@ -641,7 +641,7 @@ func EditorLoop() {
 			EditorDrawSidebar()
 		case 'Z':
 			if SidebarPromptYesNo("Clear board? ", false) {
-				for i = Board.StatCount; i >= 1; i-- {
+				for i = Board.Stats.Count; i >= 1; i-- {
 					RemoveStat(i)
 				}
 				BoardCreate()
@@ -747,7 +747,7 @@ func EditorLoop() {
 						} else {
 							if EditorPrepareModifyStatAtCursor() {
 								AddStat(cursorX, cursorY, byte(iElem), elemMenuColor, ElementDefs[iElem].Cycle, StatTemplateDefault)
-								stat := Board.Stats(Board.StatCount)
+								stat := Board.Stats.At(Board.Stats.Count)
 								if Length(ElementDefs[iElem].Param1Name) != 0 {
 									stat.P1 = World.EditorStatSettings[iElem].P1
 								}
@@ -761,9 +761,9 @@ func EditorLoop() {
 								if Length(ElementDefs[iElem].ParamBoardName) != 0 {
 									stat.P3 = World.EditorStatSettings[iElem].P3
 								}
-								EditorEditStat(Board.StatCount)
+								EditorEditStat(Board.Stats.Count)
 								if InputKeyPressed == KEY_ESCAPE {
-									RemoveStat(Board.StatCount)
+									RemoveStat(Board.Stats.Count)
 								}
 							}
 						}

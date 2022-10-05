@@ -5,14 +5,14 @@ import "strings" // interface uses: GameVars
 // implementation uses: Sounds, TxtWind, Game, Elements
 
 func OopError(statId int16, message string) {
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	DisplayMessage(200, "ERR: "+message)
 	SoundQueue(5, "P\n")
 	stat.DataPos = -1
 }
 
 func OopReadChar(statId int16, position *int16) {
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	if *position >= 0 && *position < stat.DataLen {
 		OopChar = (*stat.Data)[*position]
 		*position++
@@ -78,7 +78,7 @@ func OopSkipLine(statId int16, position *int16) {
 }
 
 func OopParseDirection(statId int16, position *int16, dx, dy *int16) (result bool) {
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	result = true
 	if OopWord == "N" || OopWord == "NORTH" {
 		*dx = 0
@@ -151,7 +151,7 @@ func OopReadDirection(statId int16, position *int16, dx, dy *int16) {
 
 func OopFindString(statId int16, s string) (OopFindString int16) {
 	var pos, wordPos, cmpPos int16
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	pos = 0
 	for pos <= stat.DataLen {
 		wordPos = 1
@@ -189,16 +189,16 @@ func OopIterateStat(statId int16, iStat *int16, lookup string) (OopIterateStat b
 	*iStat++
 	found = false
 	if lookup == "ALL" {
-		if *iStat <= Board.StatCount {
+		if *iStat <= Board.Stats.Count {
 			found = true
 		}
 	} else if lookup == "OTHERS" {
-		if *iStat <= Board.StatCount {
+		if *iStat <= Board.Stats.Count {
 			if *iStat != statId {
 				found = true
 			} else {
 				*iStat++
-				found = *iStat <= Board.StatCount
+				found = *iStat <= Board.Stats.Count
 			}
 		}
 	} else if lookup == "SELF" {
@@ -207,8 +207,8 @@ func OopIterateStat(statId int16, iStat *int16, lookup string) (OopIterateStat b
 			found = true
 		}
 	} else {
-		for *iStat <= Board.StatCount && !found {
-			if Board.Stats(*iStat).Data != nil {
+		for *iStat <= Board.Stats.Count && !found {
+			if Board.Stats.At(*iStat).Data != nil {
 				pos = 0
 				OopReadChar(*iStat, &pos)
 				if OopChar == '@' {
@@ -406,14 +406,14 @@ func OopCheckCondition(statId int16, position *int16) (result bool) {
 		tile           TTile
 		ix, iy         int16
 	)
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	if OopWord == "NOT" {
 		OopReadWord(statId, position)
 		result = !OopCheckCondition(statId, position)
 	} else if OopWord == "ALLIGNED" {
-		result = stat.X == Board.Stats(0).X || stat.Y == Board.Stats(0).Y
+		result = stat.X == Board.Stats.At(0).X || stat.Y == Board.Stats.At(0).Y
 	} else if OopWord == "CONTACT" {
-		result = Sqr(int16(stat.X)-int16(Board.Stats(0).X))+Sqr(int16(stat.Y)-int16(Board.Stats(0).Y)) == 1
+		result = Sqr(int16(stat.X)-int16(Board.Stats.At(0).X))+Sqr(int16(stat.Y)-int16(Board.Stats.At(0).Y)) == 1
 	} else if OopWord == "BLOCKED" {
 		OopReadDirection(statId, position, &deltaX, &deltaY)
 		result = !ElementDefs[Board.Tiles.Get(int16(stat.X)+deltaX, int16(stat.Y)+deltaY).Element].Walkable
@@ -457,11 +457,11 @@ func OopSend(statId int16, sendLabel string, ignoreLock bool) (OopSend bool) {
 	OopSend = false
 	iStat = 0
 	for OopFindLabel(statId, sendLabel, &iStat, &iDataPos, "\r:") {
-		if Board.Stats(iStat).P2 == 0 || ignoreLock || statId == iStat && !respectSelfLock {
+		if Board.Stats.At(iStat).P2 == 0 || ignoreLock || statId == iStat && !respectSelfLock {
 			if iStat == statId {
 				OopSend = true
 			}
-			Board.Stats(iStat).DataPos = iDataPos
+			Board.Stats.At(iStat).DataPos = iDataPos
 		}
 	}
 	return
@@ -490,7 +490,7 @@ func OopExecute(statId int16, position *int16, name string) {
 		argTile           TTile
 		argTile2          TTile
 	)
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 StartParsing:
 	stopRunning = false
 	repeatInsNextTick = false
@@ -652,14 +652,14 @@ StartParsing:
 					OopReadWord(statId, position)
 					labelStatId = 0
 					for OopFindLabel(statId, OopWord, &labelStatId, &labelDataPos, "\r:") {
-						(*(Board.Stats(labelStatId).Data))[labelDataPos+1] = '\''
+						(*(Board.Stats.At(labelStatId).Data))[labelDataPos+1] = '\''
 					}
 				} else if OopWord == "RESTORE" {
 					OopReadWord(statId, position)
 					labelStatId = 0
 					for OopFindLabel(statId, OopWord, &labelStatId, &labelDataPos, "\r'") {
 						for {
-							(*(Board.Stats(labelStatId).Data))[labelDataPos+1] = ':'
+							(*(Board.Stats.At(labelStatId).Data))[labelDataPos+1] = ':'
 							labelDataPos = OopFindString(labelStatId, "\r'"+OopWord+"\r")
 							if labelDataPos <= 0 {
 								break
@@ -736,8 +736,8 @@ StartParsing:
 					OopReadWord(statId, position)
 					bindStatId = 0
 					if OopIterateStat(statId, &bindStatId, OopWord) {
-						stat.Data = Board.Stats(bindStatId).Data
-						stat.DataLen = Board.Stats(bindStatId).DataLen
+						stat.Data = Board.Stats.At(bindStatId).Data
+						stat.DataLen = Board.Stats.At(bindStatId).DataLen
 						*position = 0
 					}
 				} else {

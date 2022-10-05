@@ -98,19 +98,19 @@ func BoardClose() {
 		}
 	}
 	WriteBoardInfo(w, Board.Info)
-	WritePShort(w, Board.StatCount)
-	for ix = 0; ix <= Board.StatCount; ix++ {
-		stat := Board.Stats(ix)
+	WritePShort(w, Board.Stats.Count)
+	for ix = 0; ix <= Board.Stats.Count; ix++ {
+		stat := Board.Stats.At(ix)
 		if stat.DataLen > 0 {
 			for iy = 1; iy <= ix-1; iy++ {
-				if Board.Stats(iy).Data == stat.Data {
+				if Board.Stats.At(iy).Data == stat.Data {
 					stat.DataLen = -iy
 				}
 			}
 		}
-		WriteStat(w, *Board.Stats(ix))
+		WriteStat(w, *Board.Stats.At(ix))
 		if stat.DataLen > 0 {
-			WritePBytes(w, *Board.Stats(ix).Data, int(Board.Stats(ix).DataLen))
+			WritePBytes(w, *Board.Stats.At(ix).Data, int(Board.Stats.At(ix).DataLen))
 		}
 	}
 	w.Flush()
@@ -148,17 +148,17 @@ func BoardOpen(boardId int16) {
 		}
 	}
 	ReadBoardInfo(r, &Board.Info)
-	ReadPShort(r, &Board.StatCount)
-	for ix = 0; ix <= Board.StatCount; ix++ {
-		stat := Board.Stats(ix)
+	ReadPShort(r, &Board.Stats.Count)
+	for ix = 0; ix <= Board.Stats.Count; ix++ {
+		stat := Board.Stats.At(ix)
 		ReadStat(r, stat)
 		if stat.DataLen > 0 {
 			data := make([]byte, stat.DataLen)
 			r.Read(data)
 			stat.Data = &data
 		} else if stat.DataLen < 0 {
-			stat.Data = Board.Stats(-stat.DataLen).Data
-			stat.DataLen = Board.Stats(-stat.DataLen).DataLen
+			stat.Data = Board.Stats.At(-stat.DataLen).Data
+			stat.DataLen = Board.Stats.At(-stat.DataLen).DataLen
 		}
 
 	}
@@ -166,13 +166,15 @@ func BoardOpen(boardId int16) {
 }
 
 func BoardChange(boardId int16) {
-	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
+	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	BoardClose()
 	BoardOpen(boardId)
 }
 
 func BoardCreate() {
 	var ix, iy, i int16
+	Board.Tiles = NewTileStorage(BOARD_WIDTH, BOARD_HEIGHT)
+	Board.Stats = NewStatStorage(MAX_STAT)
 	Board.Name = ""
 	Board.Info.Message = ""
 	Board.Info.MaxShots = 255
@@ -204,14 +206,14 @@ func BoardCreate() {
 		Board.Tiles.Set(BOARD_WIDTH, iy, TileBorder)
 	}
 	Board.Tiles.Set(BOARD_WIDTH/2, BOARD_HEIGHT/2, TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
-	Board.StatCount = 0
-	Board.Stats(0).X = BOARD_WIDTH / 2
-	Board.Stats(0).Y = BOARD_HEIGHT / 2
-	Board.Stats(0).Cycle = 1
-	Board.Stats(0).Under.Element = E_EMPTY
-	Board.Stats(0).Under.Color = 0
-	Board.Stats(0).Data = nil
-	Board.Stats(0).DataLen = 0
+	Board.Stats.Count = 0
+	Board.Stats.At(0).X = BOARD_WIDTH / 2
+	Board.Stats.At(0).Y = BOARD_HEIGHT / 2
+	Board.Stats.At(0).Cycle = 1
+	Board.Stats.At(0).Under.Element = E_EMPTY
+	Board.Stats.At(0).Under.Color = 0
+	Board.Stats.At(0).Data = nil
+	Board.Stats.At(0).DataLen = 0
 }
 
 func WorldCreate() {
@@ -259,7 +261,7 @@ func BoardDrawTile(x, y int16) {
 	}
 	var ch byte
 	tile := Board.Tiles.Get(x, y)
-	if !Board.Info.IsDark || ElementDefs[tile.Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats(0).X)-x)+Sqr(int16(Board.Stats(0).Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
+	if !Board.Info.IsDark || ElementDefs[tile.Element].VisibleInDark || World.Info.TorchTicks > 0 && Sqr(int16(Board.Stats.At(0).X)-x)+Sqr(int16(Board.Stats.At(0).Y)-y)*2 < TORCH_DIST_SQR || ForceDarknessOff {
 		if tile.Element == E_EMPTY {
 			VideoWriteText(x-1, y-1, 0x0F, " ")
 		} else if ElementDefs[tile.Element].HasDrawProc {
@@ -726,7 +728,7 @@ func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 		dataChr byte
 		i       int16
 	)
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	TextWindowInitState(state)
 	if stat.Data != nil {
 		dataPtr = bytes.NewReader(*stat.Data)
@@ -743,10 +745,10 @@ func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 }
 
 func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
-	if Board.StatCount < MAX_STAT {
-		Board.StatCount++
-		*Board.Stats(Board.StatCount) = template
-		stat := Board.Stats(Board.StatCount)
+	if Board.Stats.Count < MAX_STAT {
+		Board.Stats.Count++
+		*Board.Stats.At(Board.Stats.Count) = template
+		stat := Board.Stats.At(Board.Stats.Count)
 		stat.X = byte(tx)
 		stat.Y = byte(ty)
 		stat.Cycle = tcycle
@@ -755,7 +757,7 @@ func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
 		if template.Data != nil {
 			copiedData := make([]byte, len(*template.Data))
 			copy(copiedData, *template.Data)
-			Board.Stats(Board.StatCount).Data = &copiedData
+			Board.Stats.At(Board.Stats.Count).Data = &copiedData
 		}
 		if ElementDefs[Board.Tiles.Get(tx, ty).Element].PlaceableOnTop {
 			Board.Tiles.SetColor(tx, ty, byte(color&0x0F+int16(Board.Tiles.Get(tx, ty).Color)&0x70))
@@ -771,10 +773,10 @@ func AddStat(tx, ty int16, element byte, color, tcycle int16, template TStat) {
 
 func RemoveStat(statId int16) {
 	var i int16
-	stat := Board.Stats(statId)
+	stat := Board.Stats.At(statId)
 	if stat.DataLen != 0 {
-		for i = 1; i <= Board.StatCount; i++ {
-			if Board.Stats(i).Data == stat.Data && i != statId {
+		for i = 1; i <= Board.Stats.Count; i++ {
+			if Board.Stats.At(i).Data == stat.Data && i != statId {
 				goto StatDataInUse
 			}
 		}
@@ -789,26 +791,26 @@ StatDataInUse:
 	if stat.Y > 0 {
 		BoardDrawTile(int16(stat.X), int16(stat.Y))
 	}
-	for i = 1; i <= Board.StatCount; i++ {
-		if Board.Stats(i).Follower >= statId {
-			if Board.Stats(i).Follower == statId {
-				Board.Stats(i).Follower = -1
+	for i = 1; i <= Board.Stats.Count; i++ {
+		if Board.Stats.At(i).Follower >= statId {
+			if Board.Stats.At(i).Follower == statId {
+				Board.Stats.At(i).Follower = -1
 			} else {
-				Board.Stats(i).Follower--
+				Board.Stats.At(i).Follower--
 			}
 		}
-		if Board.Stats(i).Leader >= statId {
-			if Board.Stats(i).Leader == statId {
-				Board.Stats(i).Leader = -1
+		if Board.Stats.At(i).Leader >= statId {
+			if Board.Stats.At(i).Leader == statId {
+				Board.Stats.At(i).Leader = -1
 			} else {
-				Board.Stats(i).Leader--
+				Board.Stats.At(i).Leader--
 			}
 		}
 	}
-	for i = statId + 1; i <= Board.StatCount; i++ {
-		*Board.Stats(i - 1) = *Board.Stats(i)
+	for i = statId + 1; i <= Board.Stats.Count; i++ {
+		*Board.Stats.At(i - 1) = *Board.Stats.At(i)
 	}
-	Board.StatCount--
+	Board.Stats.Count--
 }
 
 func GetStatIdAt(x, y int16) (GetStatIdAt int16) {
@@ -816,11 +818,11 @@ func GetStatIdAt(x, y int16) (GetStatIdAt int16) {
 	i = -1
 	for {
 		i++
-		if int16(Board.Stats(i).X) == x && int16(Board.Stats(i).Y) == y || i > Board.StatCount {
+		if int16(Board.Stats.At(i).X) == x && int16(Board.Stats.At(i).Y) == y || i > Board.Stats.Count {
 			break
 		}
 	}
-	if i > Board.StatCount {
+	if i > Board.Stats.Count {
 		GetStatIdAt = -1
 	} else {
 		GetStatIdAt = i
@@ -857,9 +859,9 @@ func MoveStat(statId int16, newX, newY int16) {
 		ix, iy     int16
 		oldX, oldY int16
 	)
-	stat := Board.Stats(statId)
-	iUnder = Board.Stats(statId).Under
-	Board.Stats(statId).Under = Board.Tiles.Get(newX, newY)
+	stat := Board.Stats.At(statId)
+	iUnder = Board.Stats.At(statId).Under
+	Board.Stats.At(statId).Under = Board.Tiles.Get(newX, newY)
 	if Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element == E_PLAYER {
 		Board.Tiles.SetColor(newX, newY, Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Color)
 	} else if Board.Tiles.Get(newX, newY).Element == E_EMPTY {
@@ -998,14 +1000,14 @@ func DisplayMessage(ticks int16, message string) {
 	}
 	if Length(message) != 0 {
 		AddStat(0, 0, E_MESSAGE_TIMER, 0, 1, StatTemplateDefault)
-		Board.Stats(Board.StatCount).P2 = byte(ticks / (TickTimeDuration + 1))
+		Board.Stats.At(Board.Stats.Count).P2 = byte(ticks / (TickTimeDuration + 1))
 		Board.Info.Message = message
 	}
 }
 
 func DamageStat(attackerStatId int16) {
 	var oldX, oldY int16
-	stat := Board.Stats(attackerStatId)
+	stat := Board.Stats.At(attackerStatId)
 	if attackerStatId == 0 {
 		if World.Info.Health > 0 {
 			World.Info.Health -= 10
@@ -1065,7 +1067,7 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 		CurrentStatTicked--
 	}
 	if Board.Tiles.Get(x, y).Element == E_PLAYER && World.Info.EnergizerTicks > 0 {
-		World.Info.Score = ElementDefs[Board.Tiles.Get(int16(Board.Stats(attackerStatId).X), int16(Board.Stats(attackerStatId).Y)).Element].ScoreValue + World.Info.Score
+		World.Info.Score = ElementDefs[Board.Tiles.Get(int16(Board.Stats.At(attackerStatId).X), int16(Board.Stats.At(attackerStatId).Y)).Element].ScoreValue + World.Info.Score
 		GameUpdateSidebar()
 	} else {
 		BoardDamageTile(x, y)
@@ -1076,7 +1078,7 @@ func BoardAttack(attackerStatId int16, x, y int16) {
 func BoardShoot(element byte, tx, ty, deltaX, deltaY int16, source int16) (BoardShoot bool) {
 	if ElementDefs[Board.Tiles.Get(tx+deltaX, ty+deltaY).Element].Walkable || Board.Tiles.Get(tx+deltaX, ty+deltaY).Element == E_WATER {
 		AddStat(tx+deltaX, ty+deltaY, element, int16(ElementDefs[element].Color), 1, StatTemplateDefault)
-		stat := Board.Stats(Board.StatCount)
+		stat := Board.Stats.At(Board.Stats.Count)
 		stat.P1 = byte(source)
 		stat.StepX = deltaX
 		stat.StepY = deltaY
@@ -1105,11 +1107,11 @@ func CalcDirectionRnd(deltaX, deltaY *int16) {
 func CalcDirectionSeek(x, y int16, deltaX, deltaY *int16) {
 	*deltaX = 0
 	*deltaY = 0
-	if Random(2) < 1 || int16(Board.Stats(0).Y) == y {
-		*deltaX = Signum(int16(Board.Stats(0).X) - x)
+	if Random(2) < 1 || int16(Board.Stats.At(0).Y) == y {
+		*deltaX = Signum(int16(Board.Stats.At(0).X) - x)
 	}
 	if *deltaX == 0 {
-		*deltaY = Signum(int16(Board.Stats(0).Y) - y)
+		*deltaY = Signum(int16(Board.Stats.At(0).Y) - y)
 	}
 	if World.Info.EnergizerTicks > 0 {
 		*deltaX = -*deltaX
@@ -1123,8 +1125,8 @@ func TransitionDrawBoardChange() {
 }
 
 func BoardEnter() {
-	Board.Info.StartPlayerX = Board.Stats(0).X
-	Board.Info.StartPlayerY = Board.Stats(0).Y
+	Board.Info.StartPlayerX = Board.Stats.At(0).X
+	Board.Info.StartPlayerY = Board.Stats.At(0).Y
 	if Board.Info.IsDark && MessageHintTorchNotShown {
 		DisplayMessage(200, "Room is dark - you need to light a torch!")
 		MessageHintTorchNotShown = false
@@ -1142,7 +1144,7 @@ func BoardPassageTeleport(x, y int16) {
 	)
 	col = Board.Tiles.Get(x, y).Color
 	// oldBoard = World.Info.CurrentBoard
-	BoardChange(int16(Board.Stats(GetStatIdAt(x, y)).P3))
+	BoardChange(int16(Board.Stats.At(GetStatIdAt(x, y)).P3))
 	newX = 0
 	for ix = 1; ix <= BOARD_WIDTH; ix++ {
 		for iy = 1; iy <= BOARD_HEIGHT; iy++ {
@@ -1152,10 +1154,10 @@ func BoardPassageTeleport(x, y int16) {
 			}
 		}
 	}
-	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_EMPTY, Color: 0})
+	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: E_EMPTY, Color: 0})
 	if newX != 0 {
-		Board.Stats(0).X = byte(newX)
-		Board.Stats(0).Y = byte(newY)
+		Board.Stats.At(0).X = byte(newX)
+		Board.Stats.At(0).Y = byte(newY)
 	}
 	GamePaused = true
 	SoundQueue(4, "0\x014\x017\x011\x015\x018\x012\x016\x019\x013\x017\x01:\x014\x018\x01@\x01")
@@ -1206,9 +1208,9 @@ func GameDebugPrompt() {
 		TransitionDrawToBoard()
 	} else if input == "ZAP" {
 		for i = 0; i <= 3; i++ {
-			BoardDamageTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
-			Board.Tiles.SetElement(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i], E_EMPTY)
-			BoardDrawTile(int16(Board.Stats(0).X)+NeighborDeltaX[i], int16(Board.Stats(0).Y)+NeighborDeltaY[i])
+			BoardDamageTile(int16(Board.Stats.At(0).X)+NeighborDeltaX[i], int16(Board.Stats.At(0).Y)+NeighborDeltaY[i])
+			Board.Tiles.SetElement(int16(Board.Stats.At(0).X)+NeighborDeltaX[i], int16(Board.Stats.At(0).Y)+NeighborDeltaY[i], E_EMPTY)
+			BoardDrawTile(int16(Board.Stats.At(0).X)+NeighborDeltaX[i], int16(Board.Stats.At(0).Y)+NeighborDeltaY[i])
 		}
 	}
 
@@ -1305,7 +1307,7 @@ func GamePlayLoop(boardChanged bool) {
 		BoardChange(0)
 		JustStarted = false
 	}
-	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: byte(GameStateElement), Color: ElementDefs[GameStateElement].Color})
+	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: byte(GameStateElement), Color: ElementDefs[GameStateElement].Color})
 	if GameStateElement == E_MONITOR {
 		DisplayMessage(0, "")
 		VideoWriteText(62, 5, 0x1B, "Pick a command:")
@@ -1317,19 +1319,19 @@ func GamePlayLoop(boardChanged bool) {
 	GamePlayExitRequested = false
 	exitLoop = false
 	CurrentTick = Random(100)
-	CurrentStatTicked = Board.StatCount + 1
+	CurrentStatTicked = Board.Stats.Count + 1
 	for {
 		if GamePaused {
 			if SoundHasTimeElapsed(&TickTimeCounter, 25) {
 				pauseBlink = !pauseBlink
 			}
 			if pauseBlink {
-				VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, ElementDefs[E_PLAYER].Color, Chr(ElementDefs[E_PLAYER].Character))
+				VideoWriteText(int16(Board.Stats.At(0).X)-1, int16(Board.Stats.At(0).Y)-1, ElementDefs[E_PLAYER].Color, Chr(ElementDefs[E_PLAYER].Character))
 			} else {
-				if Board.Tiles.Get(int16(Board.Stats(0).X), int16(Board.Stats(0).Y)).Element == E_PLAYER {
-					VideoWriteText(int16(Board.Stats(0).X)-1, int16(Board.Stats(0).Y)-1, 0x0F, " ")
+				if Board.Tiles.Get(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y)).Element == E_PLAYER {
+					VideoWriteText(int16(Board.Stats.At(0).X)-1, int16(Board.Stats.At(0).Y)-1, 0x0F, " ")
 				} else {
-					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
+					BoardDrawTile(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y))
 				}
 			}
 			VideoWriteText(64, 5, 0x1F, "Pausing...")
@@ -1339,36 +1341,36 @@ func GamePlayLoop(boardChanged bool) {
 				GamePromptEndPlay()
 			}
 			if InputDeltaX != 0 || InputDeltaY != 0 {
-				ElementDefs[Board.Tiles.Get(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY).Element].TouchProc(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
+				ElementDefs[Board.Tiles.Get(int16(Board.Stats.At(0).X)+InputDeltaX, int16(Board.Stats.At(0).Y)+InputDeltaY).Element].TouchProc(int16(Board.Stats.At(0).X)+InputDeltaX, int16(Board.Stats.At(0).Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
 			}
-			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles.Get(int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY).Element].Walkable {
-				if Board.Tiles.Get(int16(Board.Stats(0).X), int16(Board.Stats(0).Y)).Element == E_PLAYER {
-					MoveStat(0, int16(Board.Stats(0).X)+InputDeltaX, int16(Board.Stats(0).Y)+InputDeltaY)
+			if (InputDeltaX != 0 || InputDeltaY != 0) && ElementDefs[Board.Tiles.Get(int16(Board.Stats.At(0).X)+InputDeltaX, int16(Board.Stats.At(0).Y)+InputDeltaY).Element].Walkable {
+				if Board.Tiles.Get(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y)).Element == E_PLAYER {
+					MoveStat(0, int16(Board.Stats.At(0).X)+InputDeltaX, int16(Board.Stats.At(0).Y)+InputDeltaY)
 				} else {
-					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
-					Board.Stats(0).X += byte(InputDeltaX)
-					Board.Stats(0).Y += byte(InputDeltaY)
-					Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
-					BoardDrawTile(int16(Board.Stats(0).X), int16(Board.Stats(0).Y))
-					DrawPlayerSurroundings(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), 0)
-					DrawPlayerSurroundings(int16(Board.Stats(0).X)-InputDeltaX, int16(Board.Stats(0).Y)-InputDeltaY, 0)
+					BoardDrawTile(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y))
+					Board.Stats.At(0).X += byte(InputDeltaX)
+					Board.Stats.At(0).Y += byte(InputDeltaY)
+					Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
+					BoardDrawTile(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y))
+					DrawPlayerSurroundings(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), 0)
+					DrawPlayerSurroundings(int16(Board.Stats.At(0).X)-InputDeltaX, int16(Board.Stats.At(0).Y)-InputDeltaY, 0)
 				}
 				GamePaused = false
 				SidebarClearLine(5)
 				CurrentTick = Random(100)
-				CurrentStatTicked = Board.StatCount + 1
+				CurrentStatTicked = Board.Stats.Count + 1
 				World.Info.IsSave = true
 			}
 		} else {
-			if CurrentStatTicked <= Board.StatCount {
-				stat := Board.Stats(CurrentStatTicked)
+			if CurrentStatTicked <= Board.Stats.Count {
+				stat := Board.Stats.At(CurrentStatTicked)
 				if stat.Cycle != 0 && CurrentTick%stat.Cycle == CurrentStatTicked%stat.Cycle {
 					ElementDefs[Board.Tiles.Get(int16(stat.X), int16(stat.Y)).Element].TickProc(CurrentStatTicked)
 				}
 				CurrentStatTicked++
 			}
 		}
-		if CurrentStatTicked > Board.StatCount && !GamePlayExitRequested {
+		if CurrentStatTicked > Board.Stats.Count && !GamePlayExitRequested {
 			if SoundHasTimeElapsed(&TickTimeCounter, TickTimeDuration) {
 				CurrentTick++
 				if CurrentTick > 420 {
@@ -1393,7 +1395,7 @@ func GamePlayLoop(boardChanged bool) {
 		SidebarClearLine(5)
 	}
 
-	Board.Tiles.Set(int16(Board.Stats(0).X), int16(Board.Stats(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
+	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	SoundBlockQueueing = false
 }
 

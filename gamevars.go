@@ -106,14 +106,20 @@ type (
 		StepX, StepY int16
 	}
 	TTileStorage struct {
-		TilesUnsafe [BOARD_WIDTH + 1 + 1][BOARD_HEIGHT + 1 + 1]TTile
+		Width  int
+		Height int
+		pitch  int
+		tiles  []TTile
+	}
+	TStatStorage struct {
+		Count int16
+		stats []TStat
 	}
 	TBoard struct {
-		Name      string
-		Tiles     TTileStorage
-		StatCount int16
-		stats     [MAX_STAT + 1 + 2]TStat
-		Info      TBoardInfo
+		Name  string
+		Tiles TTileStorage
+		Stats TStatStorage
+		Info  TBoardInfo
 	}
 	TWorld struct {
 		BoardCount         int16
@@ -128,17 +134,60 @@ type (
 	THighScoreList [HIGH_SCORE_COUNT]THighScoreEntry
 )
 
+func NewTileStorage(width, height int) TTileStorage {
+	return TTileStorage{
+		Width:  width,
+		Height: height,
+		pitch:  width + 2,
+		tiles:  make([]TTile, (width+2)*(height+2)),
+	}
+}
+
+func NewStatStorage(max int16) TStatStorage {
+	t := TStatStorage{
+		Count: max,
+		stats: make([]TStat, max+3),
+	}
+	t.stats[0] = TStat{
+		X:        0,
+		Y:        1,
+		StepX:    256,
+		StepY:    256,
+		Cycle:    256,
+		P1:       0,
+		P2:       1,
+		P3:       0,
+		Follower: 1,
+		Leader:   1,
+		Under: TTile{
+			Element: E_BOARD_EDGE,
+			Color:   0x00,
+		},
+		DataPos: 1,
+		DataLen: 1,
+	}
+	return t
+}
+
 func (t *TTileStorage) Get(x, y int16) TTile {
 	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
-		return t.TilesUnsafe[x][y]
+		return t.tiles[int(y)*t.pitch+int(x)]
 	} else {
-		return TTile{}
+		return TTile{Element: E_BOARD_EDGE, Color: 0x00}
+	}
+}
+
+func (t *TTileStorage) Pointer(x, y int16) *TTile {
+	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
+		return &t.tiles[int(y)*t.pitch+int(x)]
+	} else {
+		return nil
 	}
 }
 
 func (t *TTileStorage) With(x, y int16, w func(*TTile)) bool {
 	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
-		w(&t.TilesUnsafe[x][y])
+		w(&t.tiles[int(y)*t.pitch+int(x)])
 		return true
 	} else {
 		return false
@@ -147,23 +196,23 @@ func (t *TTileStorage) With(x, y int16, w func(*TTile)) bool {
 
 func (t *TTileStorage) Set(x, y int16, tile TTile) {
 	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
-		t.TilesUnsafe[x][y] = tile
+		t.tiles[int(y)*t.pitch+int(x)] = tile
 	}
 }
 
 func (t *TTileStorage) SetElement(x, y int16, element byte) {
 	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
-		t.TilesUnsafe[x][y].Element = element
+		t.tiles[int(y)*t.pitch+int(x)].Element = element
 	}
 }
 
 func (t *TTileStorage) SetColor(x, y int16, color byte) {
 	if x >= 0 && y >= 0 && x <= BOARD_WIDTH+1 && y <= BOARD_HEIGHT+1 {
-		t.TilesUnsafe[x][y].Color = color
+		t.tiles[int(y)*t.pitch+int(x)].Color = color
 	}
 }
 
-func (b *TBoard) Stats(i int16) *TStat {
+func (b *TStatStorage) At(i int16) *TStat {
 	if i < -1 || i > (MAX_STAT+1) {
 		return &b.stats[0]
 	} else {
