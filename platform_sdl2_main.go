@@ -187,15 +187,16 @@ func main() {
 
 	go func() {
 		ZZTMain()
+
+		frameTicker.Stop()
+		pitTicker.Stop()
+		blinkTicker.Stop()
+		tickerDone <- true
+
 		close(mainTaskQueue)
 	}()
 
 	for f := range mainTaskQueue {
 		f()
 	}
-
-	frameTicker.Stop()
-	pitTicker.Stop()
-	blinkTicker.Stop()
-	tickerDone <- true
 }
