@@ -4,8 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"io"
-	"io/fs"
-	"os"
 	"path/filepath"
 	"strings"
 )
@@ -360,7 +358,7 @@ func SidebarPromptSlider(editable bool, x, y int16, prompt string, value *byte) 
 				Delay(45)
 			}
 			VideoWriteText(x+int16(*value)+1, y+1, 0x9F, "\x1f")
-			Idle(IMUntilFrame)
+			Idle(IdleUntilFrame)
 			InputUpdate()
 			if InputKeyPressed >= '1' && InputKeyPressed <= '9' {
 				*value = byte(InputKeyPressed) - 49
@@ -571,7 +569,7 @@ func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
 	SidebarClearLine(5)
 	VideoWriteText(62, 5, 0x1F, "Loading.....")
 
-	f, err := os.Open(PathFindCaseInsensitiveFile(filename + extension))
+	f, err := VfsOpen(filename + extension)
 	if err != nil {
 		return DisplayIOError(err)
 	}
@@ -600,7 +598,7 @@ func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
 		World.Info.CurrentBoard = 0
 		World.Info.IsSave = true
 	}
-	_, err = f.Seek(WORLD_FILE_HEADER_SIZE, os.SEEK_SET)
+	_, err = f.Seek(WORLD_FILE_HEADER_SIZE, io.SeekStart)
 	if err != nil {
 		return DisplayIOError(err)
 	}
@@ -629,7 +627,7 @@ func WorldSave(filename, extension string) bool {
 	)
 	BoardClose()
 	VideoWriteText(63, 5, 0x1F, "Saving...")
-	f, err := os.Create(PathFindCaseInsensitiveFile(filename + extension))
+	f, err := VfsCreate(filename + extension)
 	if err != nil {
 		return DisplayIOError(err)
 	}
@@ -645,7 +643,7 @@ func WorldSave(filename, extension string) bool {
 	if err := WriteWorldInfo(f, World.Info); err != nil {
 		return DisplayIOError(err)
 	}
-	if _, err := f.Seek(WORLD_FILE_HEADER_SIZE, os.SEEK_SET); err != nil {
+	if _, err := f.Seek(WORLD_FILE_HEADER_SIZE, io.SeekStart); err != nil {
 		return DisplayIOError(err)
 	}
 
@@ -691,20 +689,22 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 	}
 	GameWorldLoad = false
 	textWindow.Selectable = true
-	filepath.WalkDir(".", func(path string, d fs.DirEntry, err error) error {
-		if err == nil {
-			if strings.EqualFold(filepath.Ext(path), extension) {
-				entryName = PathBasenameWithoutExt(path)
-				for i = 1; i <= WorldFileDescCount; i++ {
-					if entryName == WorldFileDescKeys[i-1] {
-						entryName = WorldFileDescValues[i-1]
-					}
+	dirs, err := VfsReadDir(".")
+	if err != nil {
+		DisplayIOError(err)
+		return
+	}
+	for _, path := range dirs {
+		if strings.EqualFold(filepath.Ext(path.Name()), extension) {
+			entryName = PathBasenameWithoutExt(path.Name())
+			for i = 1; i <= WorldFileDescCount; i++ {
+				if entryName == WorldFileDescKeys[i-1] {
+					entryName = WorldFileDescValues[i-1]
 				}
-				TextWindowAppend(&textWindow, entryName)
 			}
+			TextWindowAppend(&textWindow, entryName)
 		}
-		return err
-	})
+	}
 	TextWindowAppend(&textWindow, "Exit")
 	TextWindowDrawOpen(&textWindow)
 	TextWindowSelect(&textWindow, false, false)
@@ -1335,7 +1335,7 @@ func GamePlayLoop(boardChanged bool) {
 				}
 			}
 			VideoWriteText(64, 5, 0x1F, "Pausing...")
-			Idle(IMUntilFrame)
+			Idle(IdleUntilFrame)
 			InputUpdate()
 			if InputKeyPressed == KEY_ESCAPE {
 				GamePromptEndPlay()
@@ -1378,8 +1378,13 @@ func GamePlayLoop(boardChanged bool) {
 				}
 				CurrentStatTicked = 0
 				InputUpdate()
+				// On platforms like WASM, it is necessary to occasionally yield
+				// to not freeze the web browser.
+				if TickTimeDuration <= 0 {
+					Idle(IdleMinimal)
+				}
 			} else {
-				Idle(IMUntilPit)
+				Idle(IdleUntilPit)
 			}
 		}
 		if (exitLoop || GamePlayExitRequested) && GamePlayExitRequested {
@@ -1488,24 +1493,24 @@ func GamePrintRegisterMessage() {
 	s = "END" + Chr(byte(49+Random(4))) + ".MSG"
 	iy = 0
 	color = 0x0F
-	for i = 1; i <= ResourceDataHeader.EntryCount; i++ {
-		if ResourceDataHeader.Name[i-1] == s {
-			f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+	for i = 0; i < ResourceDataHeader.EntryCount; i++ {
+		if ResourceDataHeader.Name[i] == s {
+			f, err := VfsOpen(ResourceDataFileName)
 			if err != nil {
 				return
 			}
 			defer f.Close()
-			f.Seek(int64(ResourceDataHeader.FileOffset[i-1]), os.SEEK_SET)
+			f.Seek(int64(ResourceDataHeader.FileOffset[i-1]), io.SeekStart)
 			isReading = true
-			for err != nil && isReading {
-				ReadPByte(f, &sLen)
+			for err == nil && isReading {
+				err = ReadPByte(f, &sLen)
 				if sLen == 0 {
 					color--
 				} else {
 					sData = make([]byte, sLen)
 					f.Read(sData)
-					if len(sData) != 1 || sData[0] != '@' {
-						VideoWriteText(0, iy, byte(color), s)
+					if sData[0] != '@' {
+						VideoWriteText(0, iy, byte(color), string(sData))
 					} else {
 						isReading = false
 					}
@@ -1515,6 +1520,7 @@ func GamePrintRegisterMessage() {
 			VideoWriteText(28, 24, 0x1F, "Press any key to exit...")
 			TextColor(LightGray)
 			for {
+				Idle(IdleUntilFrame)
 				if KeyPressed() {
 					break
 				}

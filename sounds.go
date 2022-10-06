@@ -47,7 +47,7 @@ func SoundQueue(priority int16, pattern string) {
 func SoundClearQueue() {
 	SoundBuffer = ""
 	SoundIsPlaying = false
-	NoSound()
+	// NoSound()
 }
 
 func SoundInitFreqTable(highQuality bool) {
@@ -104,14 +104,6 @@ func SoundInitDrumTable() {
 	}
 }
 
-func SoundPlayDrum(drum []uint16) {
-	for i := 0; i < len(drum); i++ {
-		Sound(drum[i])
-		Delay(1)
-	}
-	NoSound()
-}
-
 func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bool) {
 	var (
 		hSecsDiff  uint16
@@ -131,22 +123,22 @@ func SoundHasTimeElapsed(counter *int16, duration int16) (SoundHasTimeElapsed bo
 func SoundTimerHandler() {
 	if !SoundEnabled {
 		SoundIsPlaying = false
-		NoSound()
+		// NoSound()
 	} else if SoundIsPlaying {
 		SoundDurationCounter--
 		if SoundDurationCounter <= 0 {
-			NoSound()
+			// NoSound()
 			if SoundBufferPos >= Length(SoundBuffer) {
-				NoSound()
+				// NoSound()
 				SoundIsPlaying = false
 			} else {
-				if SoundBuffer[SoundBufferPos-1] == '\x00' {
+				/* if SoundBuffer[SoundBufferPos-1] == 0 {
 					NoSound()
-				} else if SoundBuffer[SoundBufferPos-1] < '\xf0' {
+				} else if SoundBuffer[SoundBufferPos-1] < 240 {
 					Sound(uint16(SoundFreqTable[SoundBuffer[SoundBufferPos-1]-1] >> 8))
 				} else {
 					SoundPlayDrum(SoundDrumTable[SoundBuffer[SoundBufferPos-1]-240])
-				}
+				} */
 
 				SoundBufferPos++
 				SoundDurationCounter = SoundDurationMultiplier * SoundBuffer[SoundBufferPos-1]

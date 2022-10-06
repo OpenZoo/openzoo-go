@@ -1,6 +1,7 @@
 package main
 
 import (
+	"runtime"
 	"sync"
 )
 
@@ -18,7 +19,7 @@ var CurrentAudioSimulator *AudioSimulatorState
 type audioSimulatorRenderer interface {
 	setVolume(v byte)
 	emitSilenceToEnd(samples []byte, streamPos int)
-	emitNote(a *AudioSimulatorState, targetPos int, frequency int, emitType int, samples []byte, streamPos *int)
+	emitNote(a *AudioSimulatorState, targetPos int, frequency uint32, emitType int, samples []byte, streamPos *int)
 }
 
 type AudioSimulatorState struct {
@@ -122,21 +123,21 @@ func (a *AudioSimulatorRendererNearest) emitSilenceToEnd(samples []byte, streamP
 	}
 }
 
-func (a *AudioSimulatorRendererNearest) emitNote(as *AudioSimulatorState, targetPos int, frequency int, freqType int, samples []byte, streamPos *int) {
+func (a *AudioSimulatorRendererNearest) emitNote(as *AudioSimulatorState, targetPos int, frequency uint32, freqType int, samples []byte, streamPos *int) {
 	iMax := as.calcJump(targetPos, *streamPos, len(samples))
 	if freqType == freqSilence {
 		for i := 0; i < iMax; i++ {
 			samples[*streamPos+i] = 128
 		}
 	} else {
-		var samplesPerChange int
+		var samplesPerChange uint32
 		if freqType == freqTruncated {
-			samplesPerChange = int((uint64(as.frequency*256) * uint64(pitDivisor/(frequency>>8))) / pitDivisor)
+			samplesPerChange = uint32((uint64(as.frequency*256) * uint64(pitDivisor/(frequency>>8))) / pitDivisor)
 		} else {
-			samplesPerChange = int(uint64(as.frequency*65536) / uint64(frequency))
+			samplesPerChange = uint32(uint64(as.frequency*65536) / uint64(frequency))
 		}
 		for i := 0; i < iMax; i++ {
-			samplePos := (as.currentNotePos + i) << 8
+			var samplePos uint32 = uint32(as.currentNotePos+i) << 8
 			if (samplePos % samplesPerChange) < (samplesPerChange >> 1) {
 				samples[*streamPos+i] = a.volumeMin
 			} else {
@@ -149,6 +150,10 @@ func (a *AudioSimulatorRendererNearest) emitNote(as *AudioSimulatorState, target
 
 func (a *AudioSimulatorState) Simulate(samples []byte) {
 	freqType := freqExact // TODO: support "low quality"
+	if runtime.GOOS == "js" {
+		freqType = freqTruncated
+	}
+
 	slen := len(samples)
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -179,7 +184,7 @@ func (a *AudioSimulatorState) Simulate(samples []byte) {
 					a.renderer.emitNote(a, samplesNoteDelay, 0, freqSilence, samples, &pos)
 				} else {
 					if SoundFreqTable[a.currentNote] >= 256 {
-						a.renderer.emitNote(a, a.currentNoteMax, int(SoundFreqTable[a.currentNote]), freqType, samples, &pos)
+						a.renderer.emitNote(a, a.currentNoteMax, SoundFreqTable[a.currentNote], freqType, samples, &pos)
 					} else {
 						a.renderer.emitNote(a, a.currentNoteMax, 0, freqSilence, samples, &pos)
 					}
@@ -189,7 +194,7 @@ func (a *AudioSimulatorState) Simulate(samples []byte) {
 				drum := SoundDrumTable[a.currentNote-240]
 				drumPos := a.currentNotePos / a.samplesPerDrum
 				if drumPos < len(drum) {
-					a.renderer.emitNote(a, (drumPos+1)*a.samplesPerDrum, int(drum[drumPos])<<8, freqTruncated, samples, &pos)
+					a.renderer.emitNote(a, (drumPos+1)*a.samplesPerDrum, uint32(drum[drumPos])<<8, freqTruncated, samples, &pos)
 				} else {
 					a.renderer.emitNote(a, a.currentNoteMax, 0, freqSilence, samples, &pos)
 				}

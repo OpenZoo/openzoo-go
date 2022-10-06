@@ -2,13 +2,6 @@
 
 package main
 
-type IdleMode int
-
-const (
-	IMUntilPit IdleMode = iota
-	IMUntilFrame
-)
-
 var timerTicks int = 0
 
 func TimerTicks() int {
@@ -20,14 +13,6 @@ func TimerTicks() int {
 func MemAvail() int32 {
 	// no-op
 	return 655360
-}
-
-func NoSound() {
-	// no-op
-}
-
-func Sound(freq uint16) {
-	// no-op
 }
 
 func SetCBreak(v bool) {

@@ -1238,18 +1238,17 @@ func ElementPlayerTick(statId int16) {
 		PlayerDirY = InputDeltaY
 		ElementDefs[Board.Tiles.Get(int16(stat.X)+InputDeltaX, int16(stat.Y)+InputDeltaY).Element].TouchProc(int16(stat.X)+InputDeltaX, int16(stat.Y)+InputDeltaY, 0, &InputDeltaX, &InputDeltaY)
 		if InputDeltaX != 0 || InputDeltaY != 0 {
-			if SoundEnabled && !SoundIsPlaying {
+			/* if SoundEnabled && !SoundIsPlaying {
 				Sound(110)
-			}
+			} */
 			if ElementDefs[Board.Tiles.Get(int16(stat.X)+InputDeltaX, int16(stat.Y)+InputDeltaY).Element].Walkable {
-				if SoundEnabled && !SoundIsPlaying {
+				/* if SoundEnabled && !SoundIsPlaying {
 					NoSound()
-				}
+				} */
 				MoveStat(0, int16(stat.X)+InputDeltaX, int16(stat.Y)+InputDeltaY)
-			} else if SoundEnabled && !SoundIsPlaying {
+			} /* else if SoundEnabled && !SoundIsPlaying {
 				NoSound()
-			}
-
+			} */
 		}
 	}
 

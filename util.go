@@ -3,7 +3,6 @@ package main
 // Pascal shims - System/misc. procedures
 
 import (
-	"io/fs"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,28 +26,6 @@ func PathBasenameWithoutExt(s string) string {
 		return b
 	}
 
-}
-
-func PathFindCaseInsensitiveFile(s string) string {
-	absS, err := filepath.Abs(s)
-	if err != nil {
-		return s
-	}
-	parentS := filepath.Dir(absS)
-	filenameS := filepath.Base(s)
-	if err != nil {
-		return s
-	}
-	filepath.WalkDir(parentS, func(path string, d fs.DirEntry, err error) error {
-		if err == nil {
-			filenameCandS := filepath.Base(path)
-			if strings.EqualFold(filenameCandS, filenameS) {
-				filenameS = filenameCandS
-			}
-		}
-		return err
-	})
-	return filepath.Join(parentS, filenameS)
 }
 
 func Randomize() {

@@ -92,6 +92,7 @@ func InputCalibrateJoystickPosition(msg string, x, y *int16) (InputCalibrateJoys
 		if charTyped == '\x1b' || InputIsJoystickButtonPressed() {
 			break
 		}
+		Idle(IdleUntilFrame)
 	}
 	Delay(25)
 	if charTyped != '\x1b' {
@@ -103,6 +104,7 @@ func InputCalibrateJoystickPosition(msg string, x, y *int16) (InputCalibrateJoys
 			if !InputIsJoystickButtonPressed() || charTyped == '\x1b' {
 				break
 			}
+			Idle(IdleUntilFrame)
 		}
 	}
 	Delay(25)
@@ -329,7 +331,7 @@ func InputConfigure() (InputConfigure bool) {
 				if KeyPressed() {
 					break
 				}
-				Idle(IMUntilFrame)
+				Idle(IdleUntilFrame)
 			}
 			charTyped = UpCase(ReadKey())
 			if charTyped == 'K' || InputJoystickEnabled && charTyped == 'J' || InputMouseEnabled && charTyped == 'M' || charTyped == '\x1b' {
@@ -358,6 +360,7 @@ func InputReadWaitKey() {
 		if InputKeyPressed != '\x00' {
 			break
 		}
+		Idle(IdleUntilFrame)
 	}
 }
 

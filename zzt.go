@@ -35,15 +35,15 @@ func GameConfigure() {
 	ConfigWorldFile = ""
 	GameVersion = "3.2"
 	{
-		f, err := os.Open(PathFindCaseInsensitiveFile("zzt.cfg"))
+		f, err := VfsOpen("zzt.cfg")
 		if err == nil {
 			bf := bufio.NewReader(f)
 			line, _, _ := bf.ReadLine()
 			ConfigWorldFile = string(line)
 			line, _, _ = bf.ReadLine()
 			ConfigRegistration = string(line)
+			f.Close()
 		}
-		f.Close()
 	}
 	if Length(ConfigWorldFile) > 0 {
 		if ConfigWorldFile[0] == '*' {

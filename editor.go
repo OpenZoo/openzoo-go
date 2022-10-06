@@ -2,7 +2,6 @@ package main // unit: Editor
 
 import (
 	"bytes" // interface uses: GameVars, TxtWind
-	"os"
 )
 
 // implementation uses: Dos, Crt, Video, Sounds, Input, Elements, Oop, Game
@@ -423,7 +422,7 @@ func EditorLoop() {
 			if i == 0 {
 				SidebarPromptString("Import board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
 				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-					f, err := os.Open(PathFindCaseInsensitiveFile(SavedBoardFileName + ".BRD"))
+					f, err := VfsOpen(SavedBoardFileName + ".BRD")
 					if err != nil {
 						DisplayIOError(err)
 						goto TransferEnd
@@ -450,7 +449,7 @@ func EditorLoop() {
 			} else if i == 1 {
 				SidebarPromptString("Export board", ".BRD", &SavedBoardFileName, PROMPT_ALPHANUM)
 				if InputKeyPressed != KEY_ESCAPE && Length(SavedBoardFileName) != 0 {
-					f, err := os.Create(PathFindCaseInsensitiveFile(SavedBoardFileName + ".BRD"))
+					f, err := VfsCreate(SavedBoardFileName + ".BRD")
 					if err != nil {
 						DisplayIOError(err)
 						goto TransferEnd
@@ -527,7 +526,7 @@ func EditorLoop() {
 		if drawMode == DrawingOn {
 			EditorPlaceTile(cursorX, cursorY)
 		}
-		Idle(IMUntilFrame)
+		Idle(IdleUntilFrame)
 		InputUpdate()
 		if InputKeyPressed == '\x00' && InputDeltaX == 0 && InputDeltaY == 0 && !InputShiftPressed {
 			if SoundHasTimeElapsed(&TickTimeCounter, 15) {
@@ -821,7 +820,7 @@ func HighScoresClear() {
 }
 
 func HighScoresLoad() {
-	f, err := os.Open(PathFindCaseInsensitiveFile(World.Info.Name + ".HI"))
+	f, err := VfsOpen(World.Info.Name + ".HI")
 	if err != nil {
 		HighScoresClear()
 		return
@@ -838,7 +837,7 @@ func HighScoresLoad() {
 }
 
 func HighScoresSave() {
-	f, err := os.Create(PathFindCaseInsensitiveFile(World.Info.Name + ".HI"))
+	f, err := VfsCreate(World.Info.Name + ".HI")
 	if err != nil {
 		return
 	}

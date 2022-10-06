@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"fmt"
 	"io"
-	"os"
 	"strings"
 ) // interface uses: Video
 
@@ -235,7 +234,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 	state.Hyperlink = ""
 	TextWindowDraw(state, false, viewingFile)
 	for {
-		Idle(IMUntilFrame)
+		Idle(IdleUntilFrame)
 		InputUpdate()
 		newLinePos = state.LinePos
 		if InputDeltaY != 0 {
@@ -475,15 +474,15 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 	TextWindowInitState(state)
 	state.LoadedFilename = strings.ToUpper(filename)
 	if ResourceDataHeader.EntryCount == 0 {
-		f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+		f, err := VfsOpen(ResourceDataFileName)
 		ResourceDataHeader.EntryCount = -1
 		if err == nil {
 			err := ReadResourceDataHeader(f, &ResourceDataHeader)
 			if err != nil {
 				ResourceDataHeader.EntryCount = -1
 			}
+			f.Close()
 		}
-		f.Close()
 	}
 	if entryPos == 0 {
 		for i = 1; i <= ResourceDataHeader.EntryCount; i++ {
@@ -493,7 +492,7 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 		}
 	}
 	if entryPos <= 0 {
-		f, err := os.Open(PathFindCaseInsensitiveFile(filename))
+		f, err := VfsOpen(filename)
 		if err != nil {
 			return err
 		}
@@ -507,13 +506,13 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 		}
 		return scanner.Err()
 	} else {
-		f, err := os.Open(PathFindCaseInsensitiveFile(ResourceDataFileName))
+		f, err := VfsOpen(ResourceDataFileName)
 		if err != nil {
 			return err
 		}
 		defer f.Close()
 
-		_, err = f.Seek(int64(ResourceDataHeader.FileOffset[entryPos-1]), os.SEEK_SET)
+		_, err = f.Seek(int64(ResourceDataHeader.FileOffset[entryPos-1]), io.SeekStart)
 		if err != nil {
 			return err
 		}
@@ -544,7 +543,7 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 
 func TextWindowSaveFile(filename string, state *TTextWindowState) error {
 	var i int16
-	f, err := os.Create(PathFindCaseInsensitiveFile(filename))
+	f, err := VfsCreate(filename)
 	if err != nil {
 		return err
 	}

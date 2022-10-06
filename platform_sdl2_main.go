@@ -17,13 +17,6 @@ import (
 	"github.com/veandco/go-sdl2/sdl"
 )
 
-type IdleMode int
-
-const (
-	IMUntilPit IdleMode = iota
-	IMUntilFrame
-)
-
 var mainTaskQueue = make(chan func())
 var FrameTickCond = sync.NewCond(&sync.Mutex{})
 var PitTickCond = sync.NewCond(&sync.Mutex{})
@@ -55,25 +48,17 @@ func MemAvail() int32 {
 	return 655360
 }
 
-func NoSound() {
-	// stub
-}
-
-func Sound(freq uint16) {
-	// stub
-}
-
 func SetCBreak(v bool) {
 	// stub
 }
 
 func Idle(mode IdleMode) {
 	switch mode {
-	case IMUntilFrame:
+	case IdleUntilFrame:
 		FrameTickCond.L.Lock()
 		FrameTickCond.Wait()
 		FrameTickCond.L.Unlock()
-	case IMUntilPit:
+	case IdleUntilPit:
 		PitTickCond.L.Lock()
 		PitTickCond.Wait()
 		PitTickCond.L.Unlock()
