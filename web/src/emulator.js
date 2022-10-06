@@ -104,10 +104,6 @@ class Emulator {
             render.setPalette(palette);
         }
 
-        /* window["ozg_render"] = function(data, time) {
-            render.render(data, 3, 0);
-        } */
-
         var textBuffer = new Uint8Array(4000);
 
         console.log(emu)
@@ -191,7 +187,6 @@ export function runEmulator(render, audio, vfs, options) {
         ));
         
         go.run(emu);
-        // drawErrorMessage(emu.render.canvas, emu.render.ctx, "Engine stopped.");
     }).catch((err) => {
         console.error(err);
     });

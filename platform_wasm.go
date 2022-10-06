@@ -75,9 +75,7 @@ func main() {
 
 		requested := VideoUpdateRequested.Swap(false)
 		if force || requested {
-			// data := js.Global().Get("Uint8Array").New(len(textBuffer))
 			js.CopyBytesToJS(data, textBuffer)
-			// return data
 			return true
 		} else {
 			return nil
@@ -88,10 +86,8 @@ func main() {
 	CurrentAudioSimulator = NewAudioSimulatorNearest(48000, 32)
 
 	js.Global().Set("ozg_audioCallback", js.FuncOf(func(this js.Value, args []js.Value) any {
-		// data := js.Global().Get("Uint8Array").New(len(textBuffer))
 		CurrentAudioSimulator.Simulate(audioSlice)
 		js.CopyBytesToJS(args[0], audioSlice)
-		// return data
 		return nil
 	}))
 
@@ -99,7 +95,6 @@ func main() {
 
 	Delay(33)
 
-	// frameTicker := time.NewTicker(16666667 * time.Nanosecond)
 	pitTicker := time.NewTicker(55 * time.Millisecond)
 	blinkTicker := time.NewTicker(266666667 * time.Nanosecond)
 
@@ -108,10 +103,7 @@ func main() {
 			select {
 			case <-blinkTicker.C:
 				// TODO
-			case <-frameTicker /* .C */ :
-				/* if VideoUpdateRequested.Swap(false) {
-					js.Global().Get("ozg_render").Invoke(createBytesJS(textBuffer), 0)
-				} */
+			case <-frameTicker:
 				FrameTickCond.Broadcast()
 			case <-pitTicker.C:
 				SoundTimerHandler()
@@ -129,8 +121,6 @@ func main() {
 	blinkTicker.Stop()
 	tickerDone <- true
 }
-
-//
 
 //go:embed ascii.chr
 var charsetData []byte
