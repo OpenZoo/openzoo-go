@@ -90,6 +90,10 @@ class Emulator {
             return false;
         }, false);
 
+        window["ozg_keymod"] = function () {
+            return curr_keymod;
+        }
+
         window["ozg_key"] = function (doRemove) {
             var key = curr_key;
             if (doRemove) curr_key = -1;

@@ -49,7 +49,12 @@ func Delay(ms uint32) {
 }
 
 func KeysUpdateModifiers() {
-	// no-op
+	v := js.Global().Get("ozg_keymod").Invoke().Int()
+	KeysRightShiftHeld = false
+	KeysLeftShiftHeld = (v & 0x01) != 0
+	KeysShiftHeld = (v & 0x01) != 0
+	KeysCtrlHeld = (v & 0x04) != 0
+	KeysAltHeld = (v & 0x08) != 0
 }
 
 func KeyPressed() bool {
