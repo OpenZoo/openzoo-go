@@ -33,9 +33,13 @@ Commands:
 
 Tricks to make the binary a little smaller:
 
-  * Add `-trimpath -ldflags="-s -w"` at the end of the `go build` comamnd to remove/reduce debugging information.
-  * Replace `go build` with `garble -tiny build` to remove debugging information/stack traces even further. (Install instructions for garble [here](https://github.com/burrowers/garble).)
-  * Use `wasm-opt -Oz -o out/openzoo-go-optimized.wasm out/openzoo-go.wasm` to run a separate optimization pass on the WASM binary.
+  * Add `-trimpath -ldflags="-s -w"` at the end of the `go build` comamnd to remove/reduce debugging information. (~40KB as of 2022/10/06)	
+  * Replace `go build` with `garble -tiny build` to remove debugging information/stack traces even further. (Install instructions for garble [here](https://github.com/burrowers/garble).) (~150KB as of 2022/10/06)
+  * Use `wasm-opt -Oz -o out/openzoo-go-optimized.wasm out/openzoo-go.wasm` to run a separate optimization pass on the WASM binary. (~100KB as of 2022/10/06)
+
+Tricks to make the binary a little smaller, if you *really* want to:
+
+  * Use `-gcflags=all="-B"` to disable bounds checking. (~100KB as of 2022/10/06)
 
 ### WebAssembly (Web, TinyGo)
 
