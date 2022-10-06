@@ -70,15 +70,15 @@ func main() {
 	js.Global().Set("ozg_videoCopyTextBuffer", js.FuncOf(func(this js.Value, args []js.Value) any {
 		frameTicker <- true
 
-		// data := args[0]
-		force := args[0].Truthy()
+		data := args[0]
+		force := args[1].Truthy()
 
 		requested := VideoUpdateRequested.Swap(false)
 		if force || requested {
-			data := js.Global().Get("Uint8Array").New(len(textBuffer))
+			// data := js.Global().Get("Uint8Array").New(len(textBuffer))
 			js.CopyBytesToJS(data, textBuffer)
-			return data
-			// return true
+			// return data
+			return true
 		} else {
 			return nil
 			// return false
@@ -88,10 +88,11 @@ func main() {
 	CurrentAudioSimulator = NewAudioSimulatorNearest(48000, 32)
 
 	js.Global().Set("ozg_audioCallback", js.FuncOf(func(this js.Value, args []js.Value) any {
-		data := js.Global().Get("Uint8Array").New(len(textBuffer))
+		// data := js.Global().Get("Uint8Array").New(len(textBuffer))
 		CurrentAudioSimulator.Simulate(audioSlice)
-		js.CopyBytesToJS(data, audioSlice)
-		return data
+		js.CopyBytesToJS(args[0], audioSlice)
+		// return data
+		return nil
 	}))
 
 	js.Global().Get("ozg_init").Invoke()

@@ -108,15 +108,15 @@ class Emulator {
             render.render(data, 3, 0);
         } */
 
-        // var textBuffer = new Uint8Array(4000);
+        var textBuffer = new Uint8Array(4000);
 
         console.log(emu)
         window["ozg_init"] = function() {
             var draw;
 
             draw = function() {
-                let textBuffer = ozg_videoCopyTextBuffer(false);
-                if (textBuffer) {
+                let doRender = ozg_videoCopyTextBuffer(textBuffer, false);
+                if (doRender) {
                     render.render(textBuffer, 3, 0);
                 }
                 window.requestAnimationFrame(draw);

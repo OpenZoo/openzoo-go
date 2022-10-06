@@ -67,11 +67,11 @@ export class BufferBasedAudio {
 
 		this._queueBufferSource((buffer, source) => {
 			const bufferSize = self.bufferSize;
-			// const nativeBuffer = self.nativeBuffer;
+			const nativeBuffer = self.nativeBuffer;
 
 			const out0 = buffer.getChannelData(0);
-			// ozg_audioCallback(nativeBuffer);
-			let nativeBuffer = ozg_audioCallback();
+			ozg_audioCallback(nativeBuffer);
+			// let nativeBuffer = ozg_audioCallback();
 			for (let i = 0; i < bufferSize; i++) {
 				out0[i] = (nativeBuffer[i] - 128) / 128.0;
 			}

@@ -2,7 +2,6 @@ package main // unit: TxtWind
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"strings"
 ) // interface uses: Video
@@ -549,8 +548,11 @@ func TextWindowSaveFile(filename string, state *TTextWindowState) error {
 	}
 	defer f.Close()
 
+	w := bufio.NewWriter(f)
+	defer w.Flush()
+
 	for i = 1; i <= state.LineCount; i++ {
-		if _, err := fmt.Fprintln(f, state.Lines[i-1]); err != nil {
+		if _, err := w.WriteString(state.Lines[i-1] + "\n"); err != nil {
 			return err
 		}
 	}
