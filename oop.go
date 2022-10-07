@@ -149,10 +149,10 @@ func OopReadDirection(statId int16, position *int16, dx, dy *int16) {
 	}
 }
 
-func OopFindString(statId int16, s string) (OopFindString int16) {
-	var pos, wordPos, cmpPos int16
+func OopFindString(statId int16, s string, startPos int16) (OopFindString int16) {
+	var wordPos, cmpPos int16
 	stat := Board.Stats.At(statId)
-	pos = 0
+	pos := startPos
 	for pos <= stat.DataLen {
 		wordPos = 1
 		cmpPos = pos
@@ -256,7 +256,7 @@ FindNextStat:
 		if objectMessage == "RESTART" {
 			*iDataPos = 0
 		} else {
-			*iDataPos = OopFindString(*iStat, labelPrefix+objectMessage)
+			*iDataPos = OopFindString(*iStat, labelPrefix+objectMessage, 0)
 			if *iDataPos < 0 && targetSplitPos > 0 {
 				goto FindNextStat
 			}
@@ -660,7 +660,7 @@ StartParsing:
 					for OopFindLabel(statId, OopWord, &labelStatId, &labelDataPos, "\r'") {
 						for {
 							(*(Board.Stats.At(labelStatId).Data))[labelDataPos+1] = ':'
-							labelDataPos = OopFindString(labelStatId, "\r'"+OopWord+"\r")
+							labelDataPos = OopFindString(labelStatId, "\r'"+OopWord+"\r", labelDataPos)
 							if labelDataPos <= 0 {
 								break
 							}
