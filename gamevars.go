@@ -3,7 +3,7 @@ package main // unit: GameVars
 const (
 	MAX_STAT               = 150
 	MAX_ELEMENT            = 53
-	MAX_BOARD              = 100
+	MAX_BOARD              = 255
 	MAX_FLAG               = 10
 	BOARD_WIDTH            = 60
 	BOARD_HEIGHT           = 25
@@ -122,8 +122,7 @@ type (
 		Info  TBoardInfo
 	}
 	TWorld struct {
-		BoardCount         int16
-		BoardData          [MAX_BOARD + 1][]byte
+		BoardData          [][]byte
 		Info               TWorldInfo
 		EditorStatSettings [MAX_ELEMENT + 1]TEditorStatSetting
 	}
@@ -225,7 +224,7 @@ var (
 	PlayerDirY                  int16
 	unkVar_0476                 int16
 	unkVar_0478                 int16
-	TransitionTable             [80 * 25]TCoord
+	TransitionTable             []TCoord
 	LoadedGameFileName          string
 	SavedGameFileName           string
 	SavedBoardFileName          string
@@ -248,7 +247,6 @@ var (
 	GamePlayExitRequested       bool
 	GameStateElement            int16
 	ReturnBoardId               int16
-	TransitionTableSize         int16
 	TickSpeed                   byte
 	ElementDefs                 [MAX_ELEMENT + 1]TElementDef
 	EditorPatternCount          int16
@@ -272,9 +270,7 @@ var (
 	ParsingConfigFile           bool
 	ResetConfig                 bool
 	JustStarted                 bool
-	WorldFileDescCount          int16
-	WorldFileDescKeys           [10]string
-	WorldFileDescValues         [10]string
+	WorldFileDescs              map[string]string
 )
 
 const (

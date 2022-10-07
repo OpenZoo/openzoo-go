@@ -20,11 +20,10 @@ const (
 var NeighborBoardStrs [4]string = [4]string{"       Board \x18", "       Board \x19", "       Board \x1b", "       Board \x1a"}
 
 func EditorAppendBoard() {
-	if World.BoardCount < MAX_BOARD {
+	if len(World.BoardData) <= MAX_BOARD {
 		BoardClose()
-		World.BoardCount++
-		World.Info.CurrentBoard = World.BoardCount
-		World.BoardData[World.BoardCount] = nil
+		World.BoardData = append(World.BoardData, nil)
+		World.Info.CurrentBoard = int16(len(World.BoardData) - 1)
 		BoardCreate()
 		TransitionDrawToBoard()
 		for {
@@ -230,7 +229,7 @@ func EditorLoop() {
 			isDarkLine := state.Append(" Board is dark: " + BoolToString(Board.Info.IsDark))
 			neighborBoardsLine := len(state.Lines) + 1
 			for i := 0; i < 4; i++ {
-				state.Append(NeighborBoardStrs[i] + ": " + EditorGetBoardName(int16(Board.Info.NeighborBoards[i]), true))
+				state.Append(NeighborBoardStrs[i] + ": " + EditorGetBoardName(int(Board.Info.NeighborBoards[i]), true))
 			}
 			reEnterWhenZappedLine := state.Append("Re-enter when zapped: " + BoolToString(Board.Info.ReenterWhenZapped))
 			timeLimitLine := state.Append("  Time limit, 0=None: " + Str(Board.Info.TimeLimitSec) + " sec.")
@@ -256,7 +255,7 @@ func EditorLoop() {
 					Board.Info.IsDark = !Board.Info.IsDark
 				case neighborBoardsLine, neighborBoardsLine + 1, neighborBoardsLine + 2, neighborBoardsLine + 3:
 					Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine] = byte(EditorSelectBoard(NeighborBoardStrs[state.LinePos-neighborBoardsLine], int16(Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine]), true))
-					if int16(Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine]) > World.BoardCount {
+					if int(Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine]) >= len(World.BoardData) {
 						EditorAppendBoard()
 						exitRequested = true
 					}
@@ -369,7 +368,7 @@ func EditorLoop() {
 					if selectedBoard != 0 {
 						stat.P3 = selectedBoard
 						World.EditorStatSettings[element].P3 = byte(World.Info.CurrentBoard)
-						if int16(stat.P3) > World.BoardCount {
+						if int(stat.P3) > len(World.BoardData) {
 							EditorAppendBoard()
 							copiedHasStat = false
 							copiedTile.Element = 0
@@ -381,7 +380,7 @@ func EditorLoop() {
 					}
 					iy += 4
 				} else {
-					VideoWriteText(63, iy, 0x1F, "Room: "+Copy(EditorGetBoardName(int16(stat.P3), true), 1, 10))
+					VideoWriteText(63, iy, 0x1F, "Room: "+Copy(EditorGetBoardName(int(stat.P3), true), 1, 10))
 				}
 			}
 		}
@@ -513,7 +512,7 @@ func EditorLoop() {
 		BoardChange(World.Info.CurrentBoard)
 	}
 	EditorDrawRefresh()
-	if World.BoardCount == 0 {
+	for len(World.BoardData) <= 1 {
 		EditorAppendBoard()
 	}
 	editorExitRequested = false
@@ -658,7 +657,7 @@ func EditorLoop() {
 		case 'B':
 			i = EditorSelectBoard("Switch boards", World.Info.CurrentBoard, false)
 			if InputKeyPressed != KEY_ESCAPE {
-				if i > World.BoardCount {
+				if int(i) >= len(World.BoardData) {
 					if SidebarPromptYesNo("Add new board? ", false) {
 						EditorAppendBoard()
 					}
@@ -840,13 +839,13 @@ func EditorEditHelpFile() {
 	}
 }
 
-func EditorGetBoardName(boardId int16, titleScreenIsNone bool) (EditorGetBoardName string) {
+func EditorGetBoardName(boardId int, titleScreenIsNone bool) (EditorGetBoardName string) {
 	var (
 		copiedName string
 	)
 	if boardId == 0 && titleScreenIsNone {
 		EditorGetBoardName = "None"
-	} else if boardId == World.Info.CurrentBoard {
+	} else if boardId == int(World.Info.CurrentBoard) {
 		EditorGetBoardName = Board.Name
 	} else {
 		boardData := World.BoardData[boardId]
@@ -860,14 +859,13 @@ func EditorGetBoardName(boardId int16, titleScreenIsNone bool) (EditorGetBoardNa
 
 func EditorSelectBoard(title string, currentBoard int16, titleScreenIsNone bool) (EditorSelectBoard int16) {
 	var (
-		i          int16
 		textWindow TTextWindowState
 	)
 	textWindow.Init()
 	textWindow.Title = title
 	textWindow.LinePos = int(currentBoard + 1)
 	textWindow.Selectable = true
-	for i = 0; i <= World.BoardCount; i++ {
+	for i := 0; i < len(World.BoardData); i++ {
 		textWindow.Append(EditorGetBoardName(i, titleScreenIsNone))
 	}
 	textWindow.Append("Add new board")

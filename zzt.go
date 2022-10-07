@@ -101,21 +101,14 @@ func GameConfigure() {
 }
 
 func ZZTMain() {
-	WorldFileDescCount = 7
-	WorldFileDescKeys[0] = "TOWN"
-	WorldFileDescValues[0] = "TOWN       The Town of ZZT"
-	WorldFileDescKeys[1] = "DEMO"
-	WorldFileDescValues[1] = "DEMO       Demo of the ZZT World Editor"
-	WorldFileDescKeys[2] = "CAVES"
-	WorldFileDescValues[2] = "CAVES      The Caves of ZZT"
-	WorldFileDescKeys[3] = "DUNGEONS"
-	WorldFileDescValues[3] = "DUNGEONS   The Dungeons of ZZT"
-	WorldFileDescKeys[4] = "CITY"
-	WorldFileDescValues[4] = "CITY       Underground City of ZZT"
-	WorldFileDescKeys[5] = "BEST"
-	WorldFileDescValues[5] = "BEST       The Best of ZZT"
-	WorldFileDescKeys[6] = "TOUR"
-	WorldFileDescValues[6] = "TOUR       Guided Tour ZZT's Other Worlds"
+	WorldFileDescs = make(map[string]string)
+	WorldFileDescs["TOWN"] = "TOWN       The Town of ZZT"
+	WorldFileDescs["DEMO"] = "DEMO       Demo of the ZZT World Editor"
+	WorldFileDescs["CAVES"] = "CAVES      The Caves of ZZT"
+	WorldFileDescs["DUNGEONS"] = "DUNGEONS   The Dungeons of ZZT"
+	WorldFileDescs["CITY"] = "CITY       Underground City of ZZT"
+	WorldFileDescs["BEST"] = "BEST       The Best of ZZT"
+	WorldFileDescs["TOUR"] = "TOUR       Guided Tour ZZT's Other Worlds"
 	Randomize()
 	SetCBreak(false)
 	InitialTextAttr = TextAttr
