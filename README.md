@@ -14,7 +14,7 @@ Dependencies:
 Commands:
 
     $ go generate
-    $ go build -x -tags sdl2
+    $ go build -x -tags sdl2,editor
 
 ### WebAssembly (Web, Go)
 

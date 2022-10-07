@@ -30,7 +30,7 @@ func ParseArguments() {
 
 func GameConfigure() {
 	ParsingConfigFile = true
-	EditorEnabled = true
+	EditorEnabled = EDITOR_COMPILED
 	ConfigRegistration = ""
 	ConfigWorldFile = ""
 	GameVersion = "3.2"

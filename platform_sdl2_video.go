@@ -104,6 +104,9 @@ func IVideoClrScr(backgroundColor uint8) {
 }
 
 func IVideoWriteText(x, y int16, color byte, text string) {
+	if y < 0 || y >= 25 {
+		return
+	}
 	MainThreadAsync(func() {
 		for i := 0; i < len(text); i++ {
 			textBuffer[y][x*2] = text[i]
