@@ -73,7 +73,7 @@ class LoadingScreen {
     }
 }
 
-window.ZetaInitialize = function (options, callback) {
+window.OpenzooGoInitialize = function (options, callback) {
     console.log("OpenZoo/Go");
 
     if (!options.render) throw new Error("Missing option: render!");

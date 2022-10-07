@@ -72,7 +72,7 @@ var audioSlice = make([]byte, 2048)
 func main() {
 	IVideoSetMode(80)
 
-	js.Global().Set("ozg_videoCopyTextBuffer", js.FuncOf(func(this js.Value, args []js.Value) any {
+	js.Global().Set("ozg_videoRenderCommunicate", js.FuncOf(func(this js.Value, args []js.Value) any {
 		frameTicker <- true
 
 		data := args[0]
@@ -83,8 +83,7 @@ func main() {
 			js.CopyBytesToJS(data, textBuffer)
 			return true
 		} else {
-			return nil
-			// return false
+			return false
 		}
 	}))
 
@@ -101,13 +100,10 @@ func main() {
 	Delay(33)
 
 	pitTicker := time.NewTicker(55 * time.Millisecond)
-	blinkTicker := time.NewTicker(266666667 * time.Nanosecond)
 
 	go func() {
 		for {
 			select {
-			case <-blinkTicker.C:
-				// TODO
 			case <-frameTicker:
 				FrameTickCond.Broadcast()
 			case <-pitTicker.C:
@@ -123,7 +119,6 @@ func main() {
 	ZZTMain()
 
 	pitTicker.Stop()
-	blinkTicker.Stop()
 	tickerDone <- true
 }
 

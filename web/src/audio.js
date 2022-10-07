@@ -88,7 +88,6 @@ export class BufferBasedAudio {
 		this.time = audioCtx.currentTime;
 
 		this._queueBufferSource(() => {});
-		this._queueBufferSource(() => {});
 		this._queueNextSpeakerBuffer();
 		return true;
 	}

@@ -20,13 +20,13 @@
  * SOFTWARE.
  */
 
-ZetaLoad = function(options, callback) {
+OpenzooGoLoad = function(options, callback) {
 	if (!options.path) throw "Missing option: path!";
 
 	var scripts_array = [];
 	var script_ldr = function() {
 		if (scripts_array.length == 0) {
-			ZetaInitialize(options, callback);
+			OpenzooGoInitialize(options, callback);
 		} else {
 			var scrSrc = scripts_array.shift();
 			var scr = document.createElement("script");

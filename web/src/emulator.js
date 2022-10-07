@@ -109,15 +109,18 @@ class Emulator {
         }
 
         var textBuffer = new Uint8Array(4000);
+        var lastBlinkState = undefined;
 
-        console.log(emu)
         window["ozg_init"] = function() {
             var draw;
 
             draw = function() {
-                let doRender = ozg_videoCopyTextBuffer(textBuffer, false);
+                let time = new Date().getTime();
+                let currBlinkState = render.getBlinkState();
+                let doRender = ozg_videoRenderCommunicate(textBuffer, lastBlinkState !== currBlinkState);
                 if (doRender) {
-                    render.render(textBuffer, 3, 0);
+                    currBlinkState = lastBlinkState;
+                    render.render(textBuffer, 3, time);
                 }
                 window.requestAnimationFrame(draw);
                 audio._initSpeaker();

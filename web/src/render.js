@@ -235,6 +235,10 @@ export class CanvasBasedRenderer {
 		}
 	}
 
+	getBlinkState(time) {
+		return this.video_blink && ((time % this.blink_duration) >= (this.blink_duration / 2));
+	}
+
 	setBlinkCycleDuration(duration) {
 		this.blink_duration = Math.round(duration * 1000);
 		this.video_blink = this.blink_duration > 0;
