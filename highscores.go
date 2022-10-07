@@ -44,13 +44,13 @@ func HighScoresInitTextWindow(state *TTextWindowState) bool {
 		i        int16
 		scoreStr string
 	)
-	TextWindowInitState(state)
-	TextWindowAppend(state, "Score  Name")
-	TextWindowAppend(state, "-----  ----------------------------------")
+	state.Init()
+	state.Append("Score  Name")
+	state.Append("-----  ----------------------------------")
 	for i = 1; i <= HIGH_SCORE_COUNT; i++ {
 		if Length(HighScoreList[i-1].Name) != 0 {
 			scoreStr = StrWidth(HighScoreList[i-1].Score, 5)
-			TextWindowAppend(state, scoreStr+"  "+HighScoreList[i-1].Name)
+			state.Append(scoreStr + "  " + HighScoreList[i-1].Name)
 		}
 	}
 	return len(state.Lines) > 2
@@ -61,11 +61,10 @@ func HighScoresDisplay(linePos int) {
 	state.LinePos = linePos
 	if HighScoresInitTextWindow(&state) {
 		state.Title = "High scores for " + World.Info.Name
-		TextWindowDrawOpen(&state)
-		TextWindowSelect(&state, false, true)
-		TextWindowDrawClose(&state)
+		state.DrawOpen()
+		state.Select(false, true)
+		state.DrawClose()
 	}
-	TextWindowFree(&state)
 }
 
 func HighScoresAdd(score int16) {
@@ -86,14 +85,13 @@ func HighScoresAdd(score int16) {
 		HighScoresInitTextWindow(&textWindow)
 		textWindow.LinePos = listPos
 		textWindow.Title = "New high score for " + World.Info.Name
-		TextWindowDrawOpen(&textWindow)
-		TextWindowDraw(&textWindow, false, false)
+		textWindow.DrawOpen()
+		textWindow.Draw(false, false)
 		name = ""
 		PopupPromptString("Congratulations!  Enter your name:", &name)
 		HighScoreList[listPos-1].Name = name
 		HighScoresSave()
-		TextWindowDrawClose(&textWindow)
+		textWindow.DrawClose()
 		TransitionDrawToBoard()
-		TextWindowFree(&textWindow)
 	}
 }

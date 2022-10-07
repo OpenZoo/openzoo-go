@@ -68,22 +68,22 @@ const TEXT_WINDOW_ANIM_SPEED = 25
 
 func NewTextWindowState() *TTextWindowState {
 	var state TTextWindowState
-	TextWindowInitState(&state)
+	state.Init()
 	return &state
 }
 
-func TextWindowInitState(state *TTextWindowState) {
+func (state *TTextWindowState) Init() {
 	state.Lines = make([]string, 0)
 	state.LinePos = 1
 	state.LoadedFilename = ""
 }
 
-func TextWindowDrawTitle(color int16, title string) {
+func (state *TTextWindowState) drawTitle(color int16, title string) {
 	VideoWriteText(TextWindowX+2, TextWindowY+1, byte(color), TextWindowStrInnerEmpty)
 	VideoWriteText(TextWindowX+(TextWindowWidth-Length(title))/2, TextWindowY+1, byte(color), title)
 }
 
-func TextWindowDrawOpen(state *TTextWindowState) {
+func (state *TTextWindowState) DrawOpen() {
 	var iy int16
 	for iy = 1; iy <= TextWindowHeight+1; iy++ {
 		VideoMove(TextWindowX, iy+TextWindowY-1, TextWindowWidth, &state.ScreenCopy[iy-1], false)
@@ -96,10 +96,10 @@ func TextWindowDrawOpen(state *TTextWindowState) {
 		Delay(TEXT_WINDOW_ANIM_SPEED)
 	}
 	VideoWriteText(TextWindowX, TextWindowY+2, 0x0F, TextWindowStrSep)
-	TextWindowDrawTitle(0x1E, state.Title)
+	state.drawTitle(0x1E, state.Title)
 }
 
-func TextWindowDrawClose(state *TTextWindowState) {
+func (state *TTextWindowState) DrawClose() {
 	var iy int16
 	for iy = 0; iy <= TextWindowHeight/2; iy++ {
 		VideoWriteText(TextWindowX, TextWindowY+iy, 0x0F, TextWindowStrTop)
@@ -110,7 +110,7 @@ func TextWindowDrawClose(state *TTextWindowState) {
 	}
 }
 
-func TextWindowDrawLine(state *TTextWindowState, lpos int16, withoutFormatting, viewingFile bool) {
+func (state *TTextWindowState) drawLine(lpos int16, withoutFormatting, viewingFile bool) {
 	var (
 		lineY                        int16
 		textOffset, textColor, textX int16
@@ -160,24 +160,21 @@ func TextWindowDrawLine(state *TTextWindowState, lpos int16, withoutFormatting, 
 
 }
 
-func TextWindowDraw(state *TTextWindowState, withoutFormatting, viewingFile bool) {
+func (state *TTextWindowState) Draw(withoutFormatting, viewingFile bool) {
 	var i int16
 	for i = 0; i <= TextWindowHeight-4; i++ {
-		TextWindowDrawLine(state, int16(state.LinePos)-TextWindowHeight/2+i+2, withoutFormatting, viewingFile)
+		state.drawLine(int16(state.LinePos)-TextWindowHeight/2+i+2, withoutFormatting, viewingFile)
 	}
-	TextWindowDrawTitle(0x1E, state.Title)
+	state.drawTitle(0x1E, state.Title)
 }
 
-func TextWindowAppend(state *TTextWindowState, line string) {
+func (state *TTextWindowState) Append(line string) (newLinePos int) {
 	state.Lines = append(state.Lines, line)
+	newLinePos = len(state.Lines)
+	return
 }
 
-func TextWindowFree(state *TTextWindowState) {
-	state.Lines = nil
-	state.LoadedFilename = ""
-}
-
-func TextWindowPrint(state *TTextWindowState) {
+func (state *TTextWindowState) Print() {
 	// stub
 	/* var (
 		iLine, iChar int16
@@ -217,7 +214,7 @@ func TextWindowPrint(state *TTextWindowState) {
 	Close(Lst) */
 }
 
-func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bool) {
+func (state *TTextWindowState) Select(hyperlinkAsSelect, viewingFile bool) {
 	var (
 		newLinePos int
 		iChar      int16
@@ -225,7 +222,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 	)
 	TextWindowRejected = false
 	state.Hyperlink = ""
-	TextWindowDraw(state, false, viewingFile)
+	state.Draw(false, viewingFile)
 	for {
 		Idle(IdleUntilFrame)
 		InputUpdate()
@@ -241,14 +238,13 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 				}
 				if len(pointerStr) > 0 && pointerStr[0] == '-' {
 					pointerStr = pointerStr[1:]
-					TextWindowFree(state)
-					TextWindowOpenFile(pointerStr, state)
+					state.OpenFile(pointerStr)
 					if len(state.Lines) == 0 {
 						return
 					} else {
 						viewingFile = true
 						newLinePos = state.LinePos
-						TextWindowDraw(state, false, viewingFile)
+						state.Draw(false, viewingFile)
 						InputKeyPressed = '\x00'
 						InputShiftPressed = false
 					}
@@ -281,7 +277,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 			} else if InputKeyPressed == KEY_PAGE_DOWN {
 				newLinePos = state.LinePos + int(TextWindowHeight) - 4
 			} else if InputKeyPressed == KEY_ALT_P {
-				TextWindowPrint(state)
+				state.Print()
 			}
 
 		}
@@ -295,12 +291,12 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 
 		if newLinePos != state.LinePos {
 			state.LinePos = newLinePos
-			TextWindowDraw(state, false, viewingFile)
+			state.Draw(false, viewingFile)
 			if len(state.Lines[state.LinePos-1]) > 0 && state.Lines[state.LinePos-1][0] == '!' {
 				if hyperlinkAsSelect {
-					TextWindowDrawTitle(0x1E, "\xaePress ENTER to select this\xaf")
+					state.drawTitle(0x1E, "\xaePress ENTER to select this\xaf")
 				} else {
-					TextWindowDrawTitle(0x1E, "\xaePress ENTER for more info\xaf")
+					state.drawTitle(0x1E, "\xaePress ENTER for more info\xaf")
 				}
 			}
 		}
@@ -317,7 +313,7 @@ func TextWindowSelect(state *TTextWindowState, hyperlinkAsSelect, viewingFile bo
 	}
 }
 
-func TextWindowEdit(state *TTextWindowState) {
+func (state *TTextWindowState) Edit() {
 	var (
 		newLinePos int
 		insertMode bool
@@ -330,7 +326,7 @@ func TextWindowEdit(state *TTextWindowState) {
 			if state.LinePos > len(state.Lines) {
 				newLinePos = len(state.Lines)
 			} else {
-				TextWindowDraw(state, true, false)
+				state.Draw(true, false)
 			}
 		} else {
 			state.Lines[0] = ""
@@ -338,12 +334,12 @@ func TextWindowEdit(state *TTextWindowState) {
 	}
 
 	if len(state.Lines) == 0 {
-		TextWindowAppend(state, "")
+		state.Append("")
 	}
 	insertMode = true
 	state.LinePos = 1
 	charPos = 1
-	TextWindowDraw(state, true, false)
+	state.Draw(true, false)
 	for {
 		if insertMode {
 			VideoWriteText(77, 14, 0x1E, "on ")
@@ -425,9 +421,9 @@ func TextWindowEdit(state *TTextWindowState) {
 
 		if newLinePos != state.LinePos {
 			state.LinePos = newLinePos
-			TextWindowDraw(state, true, false)
+			state.Draw(true, false)
 		} else {
-			TextWindowDrawLine(state, int16(state.LinePos), true, false)
+			state.drawLine(int16(state.LinePos), true, false)
 		}
 		if InputKeyPressed == KEY_ESCAPE {
 			break
@@ -438,7 +434,7 @@ func TextWindowEdit(state *TTextWindowState) {
 	}
 }
 
-func TextWindowOpenFile(filename string, state *TTextWindowState) error {
+func (state *TTextWindowState) OpenFile(filename string) error {
 	var (
 		i        int16
 		entryPos int16
@@ -457,7 +453,7 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 	} else {
 		entryPos = 0
 	}
-	TextWindowInitState(state)
+	state.Init()
 	state.LoadedFilename = strings.ToUpper(filename)
 	if ResourceDataHeader.EntryCount == 0 {
 		f, err := VfsOpen(ResourceDataFileName)
@@ -527,7 +523,7 @@ func TextWindowOpenFile(filename string, state *TTextWindowState) error {
 	return nil
 }
 
-func TextWindowSaveFile(filename string, state *TTextWindowState) error {
+func (state *TTextWindowState) SaveFile(filename string) error {
 	f, err := VfsCreate(filename)
 	if err != nil {
 		return err
@@ -549,14 +545,13 @@ func TextWindowSaveFile(filename string, state *TTextWindowState) error {
 func TextWindowDisplayFile(filename, title string) {
 	var state TTextWindowState
 	state.Title = title
-	TextWindowOpenFile(filename, &state)
+	state.OpenFile(filename)
 	state.Selectable = false
 	if len(state.Lines) > 0 {
-		TextWindowDrawOpen(&state)
-		TextWindowSelect(&state, false, true)
-		TextWindowDrawClose(&state)
+		state.DrawOpen()
+		state.Select(false, true)
+		state.DrawClose()
 	}
-	TextWindowFree(&state)
 }
 
 func TextWindowInit(x, y, width, height int16) {

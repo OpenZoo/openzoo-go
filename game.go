@@ -524,22 +524,18 @@ func PauseOnError() {
 }
 
 func DisplayIOError(e error) bool {
-	var (
-		textWindow TTextWindowState
-	)
 	// stub: appropriately shorten length, etc
+	textWindow := NewTextWindowState()
 	textWindow.Title = e.Error()
-	TextWindowInitState(&textWindow)
-	TextWindowAppend(&textWindow, "This may be caused by missing")
-	TextWindowAppend(&textWindow, "ZZT files or a bad disk.  If")
-	TextWindowAppend(&textWindow, "you are trying to save a game,")
-	TextWindowAppend(&textWindow, "your disk may be full -- try")
-	TextWindowAppend(&textWindow, "using a blank, formatted disk")
-	TextWindowAppend(&textWindow, "for saving the game!")
-	TextWindowDrawOpen(&textWindow)
-	TextWindowSelect(&textWindow, false, false)
-	TextWindowDrawClose(&textWindow)
-	TextWindowFree(&textWindow)
+	textWindow.Append("This may be caused by missing")
+	textWindow.Append("ZZT files or a bad disk.  If")
+	textWindow.Append("you are trying to save a game,")
+	textWindow.Append("your disk may be full -- try")
+	textWindow.Append("using a blank, formatted disk")
+	textWindow.Append("for saving the game!")
+	textWindow.DrawOpen()
+	textWindow.Select(false, false)
+	textWindow.DrawClose()
 	return false
 }
 
@@ -681,7 +677,7 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 		entryName  string
 		i          int16
 	)
-	TextWindowInitState(&textWindow)
+	textWindow.Init()
 	if extension == ".ZZT" {
 		textWindow.Title = "ZZT Worlds"
 	} else {
@@ -702,13 +698,13 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 					entryName = WorldFileDescValues[i-1]
 				}
 			}
-			TextWindowAppend(&textWindow, entryName)
+			textWindow.Append(entryName)
 		}
 	}
-	TextWindowAppend(&textWindow, "Exit")
-	TextWindowDrawOpen(&textWindow)
-	TextWindowSelect(&textWindow, false, false)
-	TextWindowDrawClose(&textWindow)
+	textWindow.Append("Exit")
+	textWindow.DrawOpen()
+	textWindow.Select(false, false)
+	textWindow.DrawClose()
 	if textWindow.LinePos < len(textWindow.Lines) && !TextWindowRejected {
 		entryName = textWindow.Lines[textWindow.LinePos-1]
 		if Pos(' ', entryName) != 0 {
@@ -717,7 +713,6 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 		GameWorldLoad = WorldLoad(entryName, extension, false)
 		TransitionDrawToFill('\xdb', 0x44)
 	}
-	TextWindowFree(&textWindow)
 	return
 }
 
@@ -729,13 +724,13 @@ func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 		i       int16
 	)
 	stat := Board.Stats.At(statId)
-	TextWindowInitState(state)
+	state.Init()
 	if stat.Data != nil {
 		dataPtr = bytes.NewReader(*stat.Data)
 		for i = 0; i < stat.DataLen; i++ {
 			ReadPByte(dataPtr, &dataChr)
 			if dataChr == KEY_ENTER {
-				TextWindowAppend(state, dataStr.String())
+				state.Append(dataStr.String())
 				dataStr.Reset()
 			} else {
 				dataStr.WriteByte(dataChr)

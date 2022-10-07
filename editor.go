@@ -1,4 +1,5 @@
 //go:build editor
+
 package main // unit: Editor
 
 import (
@@ -204,7 +205,6 @@ func EditorLoop() {
 	EditorEditBoardInfo := func() {
 		var (
 			state         TTextWindowState
-			i             int16
 			numStr        string
 			exitRequested bool
 		)
@@ -218,78 +218,76 @@ func EditorLoop() {
 		}
 
 		state.Title = "Board Information"
-		TextWindowDrawOpen(&state)
+		state.DrawOpen()
 		state.LinePos = 1
 		state.Selectable = true
 		exitRequested = false
 		for {
 			state.Selectable = true
-			state.Lines = make([]string, 10)
-			state.Lines[0] = "         Title: " + Board.Name
-			numStr = Str(int16(Board.Info.MaxShots))
-			state.Lines[1] = "      Can fire: " + numStr + " shots."
-			state.Lines[2] = " Board is dark: " + BoolToString(Board.Info.IsDark)
-			for i = 4; i <= 7; i++ {
-				state.Lines[i-1] = NeighborBoardStrs[i-4] + ": " + EditorGetBoardName(int16(Board.Info.NeighborBoards[i-4]), true)
+			state.Lines = make([]string, 0)
+			titleLine := state.Append("         Title: " + Board.Name)
+			canFireLine := state.Append("      Can fire: " + Str(Board.Info.MaxShots) + " shots.")
+			isDarkLine := state.Append(" Board is dark: " + BoolToString(Board.Info.IsDark))
+			neighborBoardsLine := len(state.Lines) + 1
+			for i := 0; i < 4; i++ {
+				state.Append(NeighborBoardStrs[i] + ": " + EditorGetBoardName(int16(Board.Info.NeighborBoards[i]), true))
 			}
-			state.Lines[7] = "Re-enter when zapped: " + BoolToString(Board.Info.ReenterWhenZapped)
-			numStr = Str(Board.Info.TimeLimitSec)
-			state.Lines[8] = "  Time limit, 0=None: " + numStr + " sec."
-			state.Lines[9] = "          Quit!"
-			TextWindowSelect(&state, false, false)
+			reEnterWhenZappedLine := state.Append("Re-enter when zapped: " + BoolToString(Board.Info.ReenterWhenZapped))
+			timeLimitLine := state.Append("  Time limit, 0=None: " + Str(Board.Info.TimeLimitSec) + " sec.")
+			quitLine := state.Append("          Quit!")
+			state.Select(false, false)
 			if InputKeyPressed == KEY_ENTER && state.LinePos >= 1 && state.LinePos <= 8 {
 				wasModified = true
 			}
 			if InputKeyPressed == KEY_ENTER {
 				switch state.LinePos {
-				case 1:
+				case titleLine:
 					PopupPromptString("New title for board:", &Board.Name)
 					exitRequested = true
-					TextWindowDrawClose(&state)
-				case 2:
+					state.DrawClose()
+				case canFireLine:
 					numStr = Str(int16(Board.Info.MaxShots))
 					SidebarPromptString("Maximum shots?", "", &numStr, PROMPT_NUMERIC)
 					if Length(numStr) != 0 {
 						Board.Info.MaxShots = byte(Val(numStr))
 					}
 					EditorDrawSidebar()
-				case 3:
+				case isDarkLine:
 					Board.Info.IsDark = !Board.Info.IsDark
-				case 4, 5, 6, 7:
-					Board.Info.NeighborBoards[state.LinePos-4] = byte(EditorSelectBoard(NeighborBoardStrs[state.LinePos-4], int16(Board.Info.NeighborBoards[state.LinePos-4]), true))
-					if int16(Board.Info.NeighborBoards[state.LinePos-4]) > World.BoardCount {
+				case neighborBoardsLine, neighborBoardsLine + 1, neighborBoardsLine + 2, neighborBoardsLine + 3:
+					Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine] = byte(EditorSelectBoard(NeighborBoardStrs[state.LinePos-neighborBoardsLine], int16(Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine]), true))
+					if int16(Board.Info.NeighborBoards[state.LinePos-neighborBoardsLine]) > World.BoardCount {
 						EditorAppendBoard()
+						exitRequested = true
 					}
-					exitRequested = true
-				case 8:
+				case reEnterWhenZappedLine:
 					Board.Info.ReenterWhenZapped = !Board.Info.ReenterWhenZapped
-				case 9:
+				case timeLimitLine:
 					numStr = Str(Board.Info.TimeLimitSec)
 					SidebarPromptString("Time limit?", " Sec", &numStr, PROMPT_NUMERIC)
 					if Length(numStr) != 0 {
 						Board.Info.TimeLimitSec = int16(Val(numStr))
 					}
 					EditorDrawSidebar()
-				case 10:
+				case quitLine:
 					exitRequested = true
-					TextWindowDrawClose(&state)
+					state.DrawClose()
 				}
 			} else {
 				exitRequested = true
-				TextWindowDrawClose(&state)
+				state.DrawClose()
 			}
 			if exitRequested {
 				break
 			}
 		}
-		TextWindowFree(&state)
 	}
 
 	EditorEditStatText := func(statId int16, prompt string) {
 		var state TTextWindowState
 		stat := Board.Stats.At(statId)
 		state.Title = prompt
-		TextWindowDrawOpen(&state)
+		state.DrawOpen()
 		state.Selectable = false
 		CopyStatDataToTextWindow(statId, &state)
 		stat.DataLen = 0
@@ -301,8 +299,7 @@ func EditorLoop() {
 		}
 		stat.Data = &data
 		stat.DataLen = int16(len(data))
-		TextWindowFree(&state)
-		TextWindowDrawClose(&state)
+		state.DrawClose()
 		InputKeyPressed = '\x00'
 	}
 
@@ -554,7 +551,6 @@ func EditorLoop() {
 				drawMode = DrawingOff
 				InputKeyPressed = '\x00'
 			}
-
 		}
 		tile := Board.Tiles.Pointer(cursorX, cursorY)
 		if InputShiftPressed || InputKeyPressed == ' ' {
@@ -824,7 +820,7 @@ func EditorOpenEditTextWindow(state *TTextWindowState) {
 	VideoWriteText(64, 17, 0x1F, " Delete char")
 	VideoWriteText(61, 19, 0x70, " Escape ")
 	VideoWriteText(64, 20, 0x1F, " Exit editor")
-	TextWindowEdit(state)
+	state.Edit()
 }
 
 func EditorEditHelpFile() {
@@ -835,13 +831,12 @@ func EditorEditHelpFile() {
 	filename = ""
 	SidebarPromptString("File to edit", ".HLP", &filename, PROMPT_ALPHANUM)
 	if Length(filename) != 0 {
-		TextWindowOpenFile("*"+filename+".HLP", &textWindow)
+		textWindow.OpenFile("*" + filename + ".HLP")
 		textWindow.Title = "Editing " + filename
-		TextWindowDrawOpen(&textWindow)
+		textWindow.DrawOpen()
 		EditorOpenEditTextWindow(&textWindow)
-		TextWindowSaveFile(filename+".HLP", &textWindow)
-		TextWindowFree(&textWindow)
-		TextWindowDrawClose(&textWindow)
+		textWindow.SaveFile(filename + ".HLP")
+		textWindow.DrawClose()
 	}
 }
 
@@ -868,18 +863,17 @@ func EditorSelectBoard(title string, currentBoard int16, titleScreenIsNone bool)
 		i          int16
 		textWindow TTextWindowState
 	)
-	TextWindowInitState(&textWindow)
+	textWindow.Init()
 	textWindow.Title = title
 	textWindow.LinePos = int(currentBoard + 1)
 	textWindow.Selectable = true
 	for i = 0; i <= World.BoardCount; i++ {
-		TextWindowAppend(&textWindow, EditorGetBoardName(i, titleScreenIsNone))
+		textWindow.Append(EditorGetBoardName(i, titleScreenIsNone))
 	}
-	TextWindowAppend(&textWindow, "Add new board")
-	TextWindowDrawOpen(&textWindow)
-	TextWindowSelect(&textWindow, false, false)
-	TextWindowDrawClose(&textWindow)
-	TextWindowFree(&textWindow)
+	textWindow.Append("Add new board")
+	textWindow.DrawOpen()
+	textWindow.Select(false, false)
+	textWindow.DrawClose()
 	if InputKeyPressed == KEY_ESCAPE {
 		EditorSelectBoard = 0
 	} else {

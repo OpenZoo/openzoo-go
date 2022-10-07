@@ -757,7 +757,7 @@ StartParsing:
 			}
 		} else if OopChar == '\r' {
 			if textWindow != nil && len(textWindow.Lines) > 0 {
-				TextWindowAppend(textWindow, "")
+				textWindow.Append("")
 			}
 		} else if OopChar == '\x00' {
 			endOfProgram = true
@@ -768,7 +768,7 @@ StartParsing:
 				textWindow = NewTextWindowState()
 				textWindow.Selectable = false
 			}
-			TextWindowAppend(textWindow, textLine)
+			textWindow.Append(textLine)
 		}
 
 		if endOfProgram || stopRunning || repeatInsNextTick || replaceStat || insCount > 32 {
@@ -792,10 +792,9 @@ StartParsing:
 				name = "Interaction"
 			}
 			textWindow.Title = name
-			TextWindowDrawOpen(textWindow)
-			TextWindowSelect(textWindow, true, false)
-			TextWindowDrawClose(textWindow)
-			TextWindowFree(textWindow)
+			textWindow.DrawOpen()
+			textWindow.Select(true, false)
+			textWindow.DrawClose()
 			if Length(textWindow.Hyperlink) != 0 {
 				if OopSend(statId, textWindow.Hyperlink, false) {
 					textWindow = nil
@@ -804,7 +803,6 @@ StartParsing:
 			}
 		} else if len(textWindow.Lines) == 1 {
 			DisplayMessage(200, textWindow.Lines[0])
-			TextWindowFree(textWindow)
 		}
 	}
 
