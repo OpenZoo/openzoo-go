@@ -1495,7 +1495,7 @@ func GamePrintRegisterMessage() {
 				return
 			}
 			defer f.Close()
-			f.Seek(int64(ResourceDataHeader.FileOffset[i-1]), io.SeekStart)
+			f.Seek(int64(ResourceDataHeader.FileOffset[i]), io.SeekStart)
 			isReading = true
 			for err == nil && isReading {
 				err = ReadPByte(f, &sLen)
