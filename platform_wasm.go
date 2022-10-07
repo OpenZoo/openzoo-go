@@ -40,7 +40,7 @@ func Idle(mode IdleMode) {
 		PitTickCond.Wait()
 		PitTickCond.L.Unlock()
 	case IdleMinimal:
-		time.Sleep(1 * time.Millisecond)
+		time.Sleep(1 * time.Nanosecond)
 	}
 }
 

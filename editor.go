@@ -218,12 +218,11 @@ func EditorLoop() {
 		state.Title = "Board Information"
 		TextWindowDrawOpen(&state)
 		state.LinePos = 1
-		state.LineCount = 9
 		state.Selectable = true
 		exitRequested = false
 		for {
 			state.Selectable = true
-			state.LineCount = 10
+			state.Lines = make([]string, 10)
 			state.Lines[0] = "         Title: " + Board.Name
 			numStr = Str(int16(Board.Info.MaxShots))
 			state.Lines[1] = "      Can fire: " + numStr + " shots."
@@ -285,10 +284,7 @@ func EditorLoop() {
 	}
 
 	EditorEditStatText := func(statId int16, prompt string) {
-		var (
-			state TTextWindowState
-			iLine int16
-		)
+		var state TTextWindowState
 		stat := Board.Stats.At(statId)
 		state.Title = prompt
 		TextWindowDrawOpen(&state)
@@ -297,7 +293,7 @@ func EditorLoop() {
 		stat.DataLen = 0
 		EditorOpenEditTextWindow(&state)
 		data := make([]byte, 0)
-		for iLine = 1; iLine <= state.LineCount; iLine++ {
+		for iLine := 1; iLine <= len(state.Lines); iLine++ {
 			data = append(data, state.Lines[iLine-1]...)
 			data = append(data, '\r')
 		}
@@ -851,7 +847,7 @@ func HighScoresSave() {
 	}
 }
 
-func HighScoresInitTextWindow(state *TTextWindowState) {
+func HighScoresInitTextWindow(state *TTextWindowState) bool {
 	var (
 		i        int16
 		scoreStr string
@@ -865,13 +861,13 @@ func HighScoresInitTextWindow(state *TTextWindowState) {
 			TextWindowAppend(state, scoreStr+"  "+HighScoreList[i-1].Name)
 		}
 	}
+	return len(state.Lines) > 2
 }
 
-func HighScoresDisplay(linePos int16) {
+func HighScoresDisplay(linePos int) {
 	var state TTextWindowState
 	state.LinePos = linePos
-	HighScoresInitTextWindow(&state)
-	if state.LineCount > 2 {
+	if HighScoresInitTextWindow(&state) {
 		state.Title = "High scores for " + World.Info.Name
 		TextWindowDrawOpen(&state)
 		TextWindowSelect(&state, false, true)
@@ -919,14 +915,13 @@ func HighScoresAdd(score int16) {
 	var (
 		textWindow TTextWindowState
 		name       string
-		i, listPos int16
 	)
-	listPos = 1
+	listPos := 1
 	for listPos <= HIGH_SCORE_COUNT && score < HighScoreList[listPos-1].Score {
 		listPos++
 	}
 	if listPos <= HIGH_SCORE_COUNT && score > 0 {
-		for i = HIGH_SCORE_COUNT - 1; i >= listPos; i-- {
+		for i := HIGH_SCORE_COUNT - 1; i >= listPos; i-- {
 			HighScoreList[i+1-1] = HighScoreList[i-1]
 		}
 		HighScoreList[listPos-1].Score = score
@@ -969,10 +964,10 @@ func EditorSelectBoard(title string, currentBoard int16, titleScreenIsNone bool)
 		i          int16
 		textWindow TTextWindowState
 	)
+	TextWindowInitState(&textWindow)
 	textWindow.Title = title
-	textWindow.LinePos = currentBoard + 1
+	textWindow.LinePos = int(currentBoard + 1)
 	textWindow.Selectable = true
-	textWindow.LineCount = 0
 	for i = 0; i <= World.BoardCount; i++ {
 		TextWindowAppend(&textWindow, EditorGetBoardName(i, titleScreenIsNone))
 	}
@@ -984,7 +979,7 @@ func EditorSelectBoard(title string, currentBoard int16, titleScreenIsNone bool)
 	if InputKeyPressed == KEY_ESCAPE {
 		EditorSelectBoard = 0
 	} else {
-		EditorSelectBoard = textWindow.LinePos - 1
+		EditorSelectBoard = int16(textWindow.LinePos - 1)
 	}
 	return
 }

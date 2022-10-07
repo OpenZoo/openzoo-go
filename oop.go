@@ -756,7 +756,7 @@ StartParsing:
 				OopSkipLine(statId, position)
 			}
 		} else if OopChar == '\r' {
-			if textWindow != nil && textWindow.LineCount > 0 {
+			if textWindow != nil && len(textWindow.Lines) > 0 {
 				TextWindowAppend(textWindow, "")
 			}
 		} else if OopChar == '\x00' {
@@ -782,7 +782,7 @@ StartParsing:
 		*position = -1
 	}
 	if textWindow != nil {
-		if textWindow.LineCount > 1 {
+		if len(textWindow.Lines) > 1 {
 			namePosition = 0
 			OopReadChar(statId, &namePosition)
 			if OopChar == '@' {
@@ -802,7 +802,7 @@ StartParsing:
 					goto StartParsing
 				}
 			}
-		} else if textWindow.LineCount == 1 {
+		} else if len(textWindow.Lines) == 1 {
 			DisplayMessage(200, textWindow.Lines[0])
 			TextWindowFree(textWindow)
 		}
