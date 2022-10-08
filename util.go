@@ -28,6 +28,27 @@ func PathBasenameWithoutExt(s string) string {
 
 }
 
+func Signum(val int16) (Signum int16) {
+	if val > 0 {
+		Signum = 1
+	} else if val < 0 {
+		Signum = -1
+	} else {
+		Signum = 0
+	}
+
+	return
+}
+
+func Difference(a, b int16) (Difference int16) {
+	if a-b >= 0 {
+		Difference = a - b
+	} else {
+		Difference = b - a
+	}
+	return
+}
+
 func Randomize() {
 	RandSeed = uint32(time.Now().UnixMilli())
 }
