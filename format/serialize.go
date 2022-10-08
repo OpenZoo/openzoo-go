@@ -1,4 +1,4 @@
-package main
+package format
 
 import (
 	"encoding/binary"
@@ -95,7 +95,7 @@ func WritePString(w io.Writer, data []byte, length int) error {
 	return WritePBytes(w, data, length)
 }
 
-//go:generate go run serialize_gen.go BoardInfo TBoardInfo MaxShots:u8 IsDark:bool NeighborBoards:array ReenterWhenZapped:bool Message:string:58 StartPlayerX:u8 StartPlayerY:u8 TimeLimitSec:i16 Padding:array
+//go:generate go run serialize_gen.go format BoardInfo TBoardInfo MaxShots:u8 IsDark:bool NeighborBoards:array ReenterWhenZapped:bool Message:string:58 StartPlayerX:u8 StartPlayerY:u8 TimeLimitSec:i16 Padding:array
 
 func Read7BoolArray(r io.Reader, data *[7]bool) error {
 	for i := 0; i < 7; i++ {
@@ -115,8 +115,8 @@ func Write7BoolArray(w io.Writer, data [7]bool) error {
 	return nil
 }
 
-//go:generate go run serialize_gen.go WorldInfo TWorldInfo Ammo:i16 Gems:i16 Keys:!7BoolArray Health:i16 CurrentBoard:i16 Torches:i16 TorchTicks:i16 EnergizerTicks:i16 Padding1:i16 Score:i16 Name:string:20 Flags[0]:string:20 Flags[1]:string:20 Flags[2]:string:20 Flags[3]:string:20 Flags[4]:string:20 Flags[5]:string:20 Flags[6]:string:20 Flags[7]:string:20 Flags[8]:string:20 Flags[9]:string:20 BoardTimeSec:i16 BoardTimeHsec:i16 IsSave:bool Padding2:array
+//go:generate go run serialize_gen.go format WorldInfo TWorldInfo Ammo:i16 Gems:i16 Keys:!7BoolArray Health:i16 CurrentBoard:i16 Torches:i16 TorchTicks:i16 EnergizerTicks:i16 Padding1:i16 Score:i16 Name:string:20 Flags[0]:string:20 Flags[1]:string:20 Flags[2]:string:20 Flags[3]:string:20 Flags[4]:string:20 Flags[5]:string:20 Flags[6]:string:20 Flags[7]:string:20 Flags[8]:string:20 Flags[9]:string:20 BoardTimeSec:i16 BoardTimeHsec:i16 IsSave:bool Padding2:array
 
-//go:generate go run serialize_gen.go Stat TStat X:u8 Y:u8 StepX:i16 StepY:i16 Cycle:i16 P1:u8 P2:u8 P3:u8 Follower:i16 Leader:i16 Under.Element:u8 Under.Color:u8 Padding1:array DataPos:i16 DataLen:i16 Padding2:array
+//go:generate go run serialize_gen.go format Stat TStat X:u8 Y:u8 StepX:i16 StepY:i16 Cycle:i16 P1:u8 P2:u8 P3:u8 Follower:i16 Leader:i16 Under.Element:u8 Under.Color:u8 Padding1:array DataPos:i16 DataLen:i16 Padding2:array
 
-//go:generate go run serialize_gen.go HighScoreEntry THighScoreEntry Name:string:50 Score:i16
+//go:generate go run serialize_gen.go format HighScoreEntry THighScoreEntry Name:string:50 Score:i16

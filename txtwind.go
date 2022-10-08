@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"io"
 	"strings"
+
+	"github.com/OpenZoo/openzoo-go/format"
 ) // interface uses: Video
 
 const (
@@ -46,16 +48,16 @@ var (
 )
 
 func ReadResourceDataHeader(r io.Reader, b *TResourceDataHeader) error {
-	if err := ReadPShort(r, &b.EntryCount); err != nil {
+	if err := format.ReadPShort(r, &b.EntryCount); err != nil {
 		return err
 	}
 	for i := 0; i < MAX_RESOURCE_DATA_FILES; i++ {
-		if err := ReadPString(r, &b.Name[i], 50); err != nil {
+		if err := format.ReadPString(r, &b.Name[i], 50); err != nil {
 			return err
 		}
 	}
 	for i := 0; i < MAX_RESOURCE_DATA_FILES; i++ {
-		if err := ReadPLongint(r, &b.FileOffset[i]); err != nil {
+		if err := format.ReadPLongint(r, &b.FileOffset[i]); err != nil {
 			return err
 		}
 	}
@@ -500,7 +502,7 @@ func (state *TTextWindowState) OpenFile(filename string) error {
 
 		for {
 			var lineLen byte
-			if err := ReadPByte(f, &lineLen); err != nil {
+			if err := format.ReadPByte(f, &lineLen); err != nil {
 				return err
 			}
 			if lineLen == 0 {

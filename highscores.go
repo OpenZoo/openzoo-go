@@ -1,27 +1,16 @@
 package main
 
-func HighScoresClear() {
-	for i := 0; i < HIGH_SCORE_COUNT; i++ {
-		HighScoreList[i].Name = ""
-		HighScoreList[i].Score = -1
-	}
-}
+import "github.com/OpenZoo/openzoo-go/format"
 
 func HighScoresLoad() {
 	f, err := VfsOpen(World.Info.Name + ".HI")
 	if err != nil {
-		HighScoresClear()
+		HighScoreList = format.NewHighScoreList(HIGH_SCORE_COUNT)
 		return
 	}
 	defer f.Close()
 
-	for i := 0; i < HIGH_SCORE_COUNT; i++ {
-		err = ReadHighScoreEntry(f, &HighScoreList[i])
-		if err != nil {
-			HighScoresClear()
-			return
-		}
-	}
+	HighScoreList, _ = format.HighScoresDeserialize(f)
 }
 
 func HighScoresSave() {
@@ -31,12 +20,7 @@ func HighScoresSave() {
 	}
 	defer f.Close()
 
-	for i := 0; i < HIGH_SCORE_COUNT; i++ {
-		err = WriteHighScoreEntry(f, HighScoreList[i])
-		if err != nil {
-			return
-		}
-	}
+	format.HighScoresSerialize(f, HighScoreList)
 }
 
 func HighScoresInitTextWindow(state *TTextWindowState) bool {

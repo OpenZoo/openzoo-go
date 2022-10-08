@@ -4,6 +4,8 @@ package main // unit: Editor
 
 import (
 	"bytes" // interface uses: GameVars, TxtWind
+
+	"github.com/OpenZoo/openzoo-go/format"
 )
 
 // implementation uses: Dos, Crt, Video, Sounds, Input, Elements, Oop, Game
@@ -320,14 +322,14 @@ func EditorLoop() {
 					SidebarPromptSlider(selected, 63, iy, ElementDefs[element].Param1Name, &stat.P1)
 				} else {
 					if stat.P1 == 0 {
-						stat.P1 = World.EditorStatSettings[element].P1
+						stat.P1 = EditorStatSettings[element].P1
 					}
 					BoardDrawTile(int16(stat.X), int16(stat.Y))
 					SidebarPromptCharacter(selected, 63, iy, ElementDefs[element].Param1Name, &stat.P1)
 					BoardDrawTile(int16(stat.X), int16(stat.Y))
 				}
 				if selected {
-					World.EditorStatSettings[element].P1 = stat.P1
+					EditorStatSettings[element].P1 = stat.P1
 				}
 				iy += 4
 			}
@@ -341,7 +343,7 @@ func EditorLoop() {
 				SidebarPromptSlider(selected, 63, iy, ElementDefs[element].Param2Name, &promptByte)
 				if selected {
 					stat.P2 = byte(int16(stat.P2)&0x80 + int16(promptByte))
-					World.EditorStatSettings[element].P2 = stat.P2
+					EditorStatSettings[element].P2 = stat.P2
 				}
 				iy += 4
 			}
@@ -350,15 +352,15 @@ func EditorLoop() {
 				SidebarPromptChoice(selected, iy, ElementDefs[element].ParamBulletTypeName, "Bullets Stars", &promptByte)
 				if selected {
 					stat.P2 = byte(int16(stat.P2)%0x80 + int16(promptByte)*0x80)
-					World.EditorStatSettings[element].P2 = stat.P2
+					EditorStatSettings[element].P2 = stat.P2
 				}
 				iy += 4
 			}
 			if InputKeyPressed != KEY_ESCAPE && Length(ElementDefs[element].ParamDirName) != 0 {
 				SidebarPromptDirection(selected, iy, ElementDefs[element].ParamDirName, &stat.StepX, &stat.StepY)
 				if selected {
-					World.EditorStatSettings[element].StepX = stat.StepX
-					World.EditorStatSettings[element].StepY = stat.StepY
+					EditorStatSettings[element].StepX = stat.StepX
+					EditorStatSettings[element].StepY = stat.StepY
 				}
 				iy += 4
 			}
@@ -367,14 +369,14 @@ func EditorLoop() {
 					selectedBoard = byte(EditorSelectBoard(ElementDefs[element].ParamBoardName, int16(stat.P3), true))
 					if selectedBoard != 0 {
 						stat.P3 = selectedBoard
-						World.EditorStatSettings[element].P3 = byte(World.Info.CurrentBoard)
+						EditorStatSettings[element].P3 = byte(World.Info.CurrentBoard)
 						if int(stat.P3) > len(World.BoardData) {
 							EditorAppendBoard()
 							copiedHasStat = false
 							copiedTile.Element = 0
 							copiedTile.Color = 0x0F
 						}
-						World.EditorStatSettings[element].P3 = stat.P3
+						EditorStatSettings[element].P3 = stat.P3
 					} else {
 						InputKeyPressed = KEY_ESCAPE
 					}
@@ -424,7 +426,7 @@ func EditorLoop() {
 					defer f.Close()
 					BoardClose()
 					var boardLen uint16
-					err = ReadPUShort(f, &boardLen)
+					err = format.ReadPUShort(f, &boardLen)
 					if err != nil && boardLen > 0 {
 						data := make([]byte, boardLen)
 						_, err = f.Read(data)
@@ -450,7 +452,7 @@ func EditorLoop() {
 					}
 					defer f.Close()
 					BoardClose()
-					WritePShort(f, int16(len(World.BoardData[World.Info.CurrentBoard])))
+					format.WritePShort(f, int16(len(World.BoardData[World.Info.CurrentBoard])))
 					_, err = f.Write(World.BoardData[World.Info.CurrentBoard])
 					BoardOpen(World.Info.CurrentBoard)
 					if err != nil {
@@ -741,17 +743,17 @@ func EditorLoop() {
 								AddStat(cursorX, cursorY, byte(iElem), elemMenuColor, ElementDefs[iElem].Cycle, StatTemplateDefault)
 								stat := Board.Stats.At(Board.Stats.Count)
 								if Length(ElementDefs[iElem].Param1Name) != 0 {
-									stat.P1 = World.EditorStatSettings[iElem].P1
+									stat.P1 = EditorStatSettings[iElem].P1
 								}
 								if Length(ElementDefs[iElem].Param2Name) != 0 {
-									stat.P2 = World.EditorStatSettings[iElem].P2
+									stat.P2 = EditorStatSettings[iElem].P2
 								}
 								if Length(ElementDefs[iElem].ParamDirName) != 0 {
-									stat.StepX = World.EditorStatSettings[iElem].StepX
-									stat.StepY = World.EditorStatSettings[iElem].StepY
+									stat.StepX = EditorStatSettings[iElem].StepX
+									stat.StepY = EditorStatSettings[iElem].StepY
 								}
 								if Length(ElementDefs[iElem].ParamBoardName) != 0 {
-									stat.P3 = World.EditorStatSettings[iElem].P3
+									stat.P3 = EditorStatSettings[iElem].P3
 								}
 								EditorEditStat(Board.Stats.Count)
 								if InputKeyPressed == KEY_ESCAPE {
@@ -850,7 +852,7 @@ func EditorGetBoardName(boardId int, titleScreenIsNone bool) (EditorGetBoardName
 	} else {
 		boardData := World.BoardData[boardId]
 		r := bytes.NewReader(boardData)
-		ReadPString(r, &copiedName, BOARD_NAME_LENGTH)
+		format.ReadPString(r, &copiedName, BOARD_NAME_LENGTH)
 		EditorGetBoardName = copiedName
 	}
 

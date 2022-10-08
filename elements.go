@@ -1752,13 +1752,13 @@ func InitEditorStatSettings() {
 	PlayerDirX = 0
 	PlayerDirY = 0
 	for i = 0; i <= MAX_ELEMENT; i++ {
-		setting := &World.EditorStatSettings[i]
+		setting := &EditorStatSettings[i]
 		setting.P1 = 4
 		setting.P2 = 4
 		setting.P3 = 0
 		setting.StepX = 0
 		setting.StepY = -1
 	}
-	World.EditorStatSettings[E_OBJECT].P1 = 1
-	World.EditorStatSettings[E_BEAR].P1 = 8
+	EditorStatSettings[E_OBJECT].P1 = 1
+	EditorStatSettings[E_BEAR].P1 = 8
 }

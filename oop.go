@@ -267,31 +267,28 @@ FindNextStat:
 	return
 }
 
-func WorldGetFlagPosition(name string) (WorldGetFlagPosition int16) {
-	var i int16
-	WorldGetFlagPosition = -1
-	for i = 1; i <= MAX_FLAG; i++ {
-		if World.Info.Flags[i-1] == name {
-			WorldGetFlagPosition = i
+func WorldGetFlagPosition(name string) int {
+	for i := 0; i < len(World.Info.Flags); i++ {
+		if World.Info.Flags[i] == name {
+			return i
 		}
 	}
-	return
+	return -1
 }
 
 func WorldSetFlag(name string) {
-	var i int16
 	if WorldGetFlagPosition(name) < 0 {
-		i = 1
-		for i < MAX_FLAG && Length(World.Info.Flags[i-1]) != 0 {
+		i := 0
+		for i < (len(World.Info.Flags)-1) && len(World.Info.Flags[i]) != 0 {
 			i++
 		}
-		World.Info.Flags[i-1] = name
+		World.Info.Flags[i] = name
 	}
 }
 
 func WorldClearFlag(name string) {
 	if WorldGetFlagPosition(name) >= 0 {
-		World.Info.Flags[WorldGetFlagPosition(name)-1] = ""
+		World.Info.Flags[WorldGetFlagPosition(name)] = ""
 	}
 }
 

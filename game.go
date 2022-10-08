@@ -6,6 +6,8 @@ import (
 	"io"
 	"path/filepath"
 	"strings"
+
+	"github.com/OpenZoo/openzoo-go/format"
 )
 
 const (
@@ -60,124 +62,33 @@ func GenerateTransitionTable() {
 	}
 }
 
-func BoardSerialize(b *TBoard) []byte {
-	var (
-		ix, iy int16
-		buf    bytes.Buffer
-		rle    TRleTile
-	)
-	w := bufio.NewWriter(&buf)
-	WritePString(w, []byte(b.Name), BOARD_NAME_LENGTH)
-
-	ix = 1
-	iy = 1
-	rle.Count = 1
-	rle.Tile = b.Tiles.Get(ix, iy)
-	for {
-		ix++
-		if ix > BOARD_WIDTH {
-			ix = 1
-			iy++
-		}
-		if b.Tiles.Get(ix, iy).Color == rle.Tile.Color && b.Tiles.Get(ix, iy).Element == rle.Tile.Element && rle.Count < 255 && iy <= BOARD_HEIGHT {
-			rle.Count++
-		} else {
-			WritePByte(w, rle.Count)
-			WritePByte(w, rle.Tile.Element)
-			WritePByte(w, rle.Tile.Color)
-
-			rle.Tile = b.Tiles.Get(ix, iy)
-			rle.Count = 1
-		}
-		if iy > BOARD_HEIGHT {
-			break
-		}
-	}
-	WriteBoardInfo(w, b.Info)
-	WritePShort(w, b.Stats.Count)
-	for ix = 0; ix <= b.Stats.Count; ix++ {
-		stat := b.Stats.At(ix)
-		if stat.DataLen > 0 {
-			for iy = 1; iy <= ix-1; iy++ {
-				if b.Stats.At(iy).Data == stat.Data {
-					stat.DataLen = -iy
-				}
-			}
-		}
-		WriteStat(w, *b.Stats.At(ix))
-		if stat.DataLen > 0 {
-			WritePBytes(w, *b.Stats.At(ix).Data, int(b.Stats.At(ix).DataLen))
-		}
-	}
-	w.Flush()
-	return buf.Bytes()
-}
-
 func BoardClose() {
-	World.BoardData[World.Info.CurrentBoard] = BoardSerialize(&Board)
-}
-
-func BoardDeserialize(b *TBoard, data []byte) {
-	var (
-		ix, iy int16
-		rle    TRleTile
-	)
-	r := bytes.NewReader(data)
-	ReadPString(r, &b.Name, BOARD_NAME_LENGTH)
-	ix = 1
-	iy = 1
-	rle.Count = 0
-	for {
-		if rle.Count <= 0 {
-			ReadPByte(r, &rle.Count)
-			ReadPByte(r, &rle.Tile.Element)
-			ReadPByte(r, &rle.Tile.Color)
-		}
-		b.Tiles.Set(ix, iy, rle.Tile)
-		ix++
-		if ix > BOARD_WIDTH {
-			ix = 1
-			iy++
-		}
-		rle.Count--
-		if iy > BOARD_HEIGHT {
-			break
-		}
-	}
-	ReadBoardInfo(r, &b.Info)
-	ReadPShort(r, &b.Stats.Count)
-	for ix = 0; ix <= b.Stats.Count; ix++ {
-		stat := b.Stats.At(ix)
-		ReadStat(r, stat)
-		if stat.DataLen > 0 {
-			data := make([]byte, stat.DataLen)
-			r.Read(data)
-			stat.Data = &data
-		} else if stat.DataLen < 0 {
-			stat.Data = b.Stats.At(-stat.DataLen).Data
-			stat.DataLen = b.Stats.At(-stat.DataLen).DataLen
-		}
-	}
+	var buf bytes.Buffer
+	w := bufio.NewWriter(&buf)
+	format.BoardSerialize(&Board, w)
+	w.Flush()
+	World.BoardData[World.Info.CurrentBoard] = buf.Bytes()
 }
 
 func BoardOpen(boardId int16) {
 	if int(boardId) >= len(World.BoardData) {
 		boardId = World.Info.CurrentBoard
 	}
-	BoardDeserialize(&Board, World.BoardData[boardId])
+	r := bytes.NewReader(World.BoardData[boardId])
+	format.BoardDeserialize(&Board, r)
 	World.Info.CurrentBoard = boardId
 }
 
 func BoardChange(boardId int16) {
-	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
+	Board.Tiles.Set(int16(Board.Stats.At(0).X), int16(Board.Stats.At(0).Y), format.TTile{Element: E_PLAYER, Color: ElementDefs[E_PLAYER].Color})
 	BoardClose()
 	BoardOpen(boardId)
 }
 
 func BoardCreate() {
 	var ix, iy, i int16
-	Board.Tiles = NewTileStorage(BOARD_WIDTH, BOARD_HEIGHT)
-	Board.Stats = NewStatStorage(MAX_STAT)
+	Board.Tiles = format.NewTileStorage(BOARD_WIDTH, BOARD_HEIGHT)
+	Board.Stats = format.NewStatStorage(MAX_STAT)
 	Board.Name = ""
 	Board.Info.Message = ""
 	Board.Info.MaxShots = 255
@@ -220,7 +131,6 @@ func BoardCreate() {
 }
 
 func WorldCreate() {
-	var i int16
 	InitElementsGame()
 	World.BoardData = make([][]byte, 1)
 	World.BoardData[0] = make([]byte, 0)
@@ -238,11 +148,12 @@ func WorldCreate() {
 	World.Info.Score = 0
 	World.Info.BoardTimeSec = 0
 	World.Info.BoardTimeHsec = 0
-	for i = 1; i <= 7; i++ {
-		World.Info.Keys[i-1] = false
+	World.Info.Flags = make([]string, 10)
+	for i := 0; i < 7; i++ {
+		World.Info.Keys[i] = false
 	}
-	for i = 1; i <= MAX_FLAG; i++ {
-		World.Info.Flags[i-1] = ""
+	for i := 0; i < len(World.Info.Flags); i++ {
+		World.Info.Flags[i] = ""
 	}
 	BoardChange(0)
 	Board.Name = "Title screen"
@@ -548,19 +459,11 @@ func WorldUnload() {
 	}
 }
 
-func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
-	var (
-		boardId      int16
-		boardLen     uint16
-		loadProgress int16
-	)
-	SidebarAnimateLoading := func() {
-		VideoWriteText(69, 5, ProgressAnimColors[loadProgress], ProgressAnimStrings[loadProgress])
-		loadProgress = (loadProgress + 1) % 8
+func WorldLoad(filename, extension string, flags format.WorldDeserializeFlag) bool {
+	SidebarAnimateLoading := func(step, _ int) {
+		VideoWriteText(69, 5, ProgressAnimColors[step&7], ProgressAnimStrings[step&7])
 	}
 
-	WorldLoad = false
-	loadProgress = 0
 	SidebarClearLine(4)
 	SidebarClearLine(5)
 	SidebarClearLine(5)
@@ -573,89 +476,39 @@ func WorldLoad(filename, extension string, titleOnly bool) (WorldLoad bool) {
 	defer f.Close()
 
 	WorldUnload()
-	var boardCount int16
-	if err := ReadPShort(f, &boardCount); err != nil {
+
+	err = format.WorldDeserialize(f, &World, flags, SidebarAnimateLoading)
+	if err == format.ErrWrongZZTVersion {
+		VideoWriteText(63, 5, 0x1E, "You need a newer")
+		VideoWriteText(63, 6, 0x1E, " version of ZZT!")
+		return false
+	} else if err != nil {
 		return DisplayIOError(err)
 	}
-	if boardCount < 0 {
-		if boardCount != -1 {
-			VideoWriteText(63, 5, 0x1E, "You need a newer")
-			VideoWriteText(63, 6, 0x1E, " version of ZZT!")
-			return
-		} else {
-			if err := ReadPShort(f, &boardCount); err != nil {
-				return DisplayIOError(err)
-			}
-		}
-	}
-	if err := ReadWorldInfo(f, &World.Info); err != nil {
-		return DisplayIOError(err)
-	}
-	if titleOnly {
-		boardCount = 0
-		World.Info.CurrentBoard = 0
-		World.Info.IsSave = true
-	}
-	_, err = f.Seek(WORLD_FILE_HEADER_SIZE, io.SeekStart)
-	if err != nil {
-		return DisplayIOError(err)
-	}
-	World.BoardData = make([][]byte, boardCount+1)
-	for boardId = 0; boardId <= boardCount; boardId++ {
-		SidebarAnimateLoading()
-		ReadPUShort(f, &boardLen)
-		data := make([]byte, boardLen)
-		_, err := f.Read(data)
-		if err != nil {
-			return DisplayIOError(err)
-		}
-		World.BoardData[boardId] = data
-	}
+
 	BoardOpen(World.Info.CurrentBoard)
 	LoadedGameFileName = filename
-	WorldLoad = true
 	HighScoresLoad()
 	SidebarClearLine(5)
 
-	return
+	return true
 }
 
-func WorldSave(filename, extension string) bool {
+func WorldSave(filename, extension string) error {
 	BoardClose()
 	VideoWriteText(63, 5, 0x1F, "Saving...")
 	f, err := VfsCreate(filename + extension)
 	if err != nil {
-		return DisplayIOError(err)
+		return err
 	}
 	defer f.Close()
 
-	// version
-	if err := WritePShort(f, -1); err != nil {
-		return DisplayIOError(err)
-	}
-	if err := WritePShort(f, int16(len(World.BoardData)-1)); err != nil {
-		return DisplayIOError(err)
-	}
-	if err := WriteWorldInfo(f, World.Info); err != nil {
-		return DisplayIOError(err)
-	}
-	if _, err := f.Seek(WORLD_FILE_HEADER_SIZE, io.SeekStart); err != nil {
-		return DisplayIOError(err)
-	}
-
-	for i := 0; i < len(World.BoardData); i++ {
-		if err := WritePUShort(f, uint16(len(World.BoardData[i]))); err != nil {
-			return DisplayIOError(err)
-		}
-		if _, err := f.Write(World.BoardData[i]); err != nil {
-			return DisplayIOError(err)
-		}
-	}
+	err = format.WorldSerialize(f, &World)
 
 	BoardOpen(World.Info.CurrentBoard)
 	SidebarClearLine(5)
 
-	return true
+	return err
 }
 
 func GameWorldSave(prompt string, filename *string, extension string) {
@@ -666,7 +519,9 @@ func GameWorldSave(prompt string, filename *string, extension string) {
 		if extension == ".ZZT" {
 			World.Info.Name = *filename
 		}
-		WorldSave(*filename, extension)
+		if err := WorldSave(*filename, extension); err != nil {
+			DisplayIOError(err)
+		}
 	}
 }
 
@@ -706,7 +561,7 @@ func GameWorldLoad(extension string) (GameWorldLoad bool) {
 		if Pos(' ', entryName) != 0 {
 			entryName = Copy(entryName, 1, Pos(' ', entryName)-1)
 		}
-		GameWorldLoad = WorldLoad(entryName, extension, false)
+		GameWorldLoad = WorldLoad(entryName, extension, 0)
 		TransitionDrawToFill('\xdb', 0x44)
 	}
 	return
@@ -724,7 +579,7 @@ func CopyStatDataToTextWindow(statId int16, state *TTextWindowState) {
 	if stat.Data != nil {
 		dataPtr = bytes.NewReader(*stat.Data)
 		for i = 0; i < stat.DataLen; i++ {
-			ReadPByte(dataPtr, &dataChr)
+			format.ReadPByte(dataPtr, &dataChr)
 			if dataChr == KEY_ENTER {
 				state.Append(dataStr.String())
 				dataStr.Reset()
@@ -1289,7 +1144,7 @@ func GamePlayLoop(boardChanged bool) {
 		if Length(StartupWorldFileName) != 0 {
 			SidebarClearLine(8)
 			VideoWriteText(69, 8, 0x1F, StartupWorldFileName)
-			if !WorldLoad(StartupWorldFileName, ".ZZT", true) {
+			if !WorldLoad(StartupWorldFileName, ".ZZT", format.WorldDeserializeTitleOnly) {
 				WorldCreate()
 			}
 		}
@@ -1419,7 +1274,7 @@ func GameTitleLoop() {
 				}
 			case 'P':
 				if World.Info.IsSave && !DebugEnabled {
-					startPlay = WorldLoad(World.Info.Name, ".ZZT", false)
+					startPlay = WorldLoad(World.Info.Name, ".ZZT", 0)
 					ReturnBoardId = World.Info.CurrentBoard
 				} else {
 					startPlay = true
@@ -1493,7 +1348,7 @@ func GamePrintRegisterMessage() {
 			f.Seek(int64(ResourceDataHeader.FileOffset[i]), io.SeekStart)
 			isReading = true
 			for err == nil && isReading {
-				err = ReadPByte(f, &sLen)
+				err = format.ReadPByte(f, &sLen)
 				if sLen == 0 {
 					color--
 				} else {
