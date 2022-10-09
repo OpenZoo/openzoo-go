@@ -535,8 +535,8 @@ func ElementTransporterMove(x, y, deltaX, deltaY int16) {
 		for {
 			ix += deltaX
 			iy += deltaY
-			tile := Board.Tiles.Get(ix, iy)
-			if tile.Element == E_BOARD_EDGE {
+			tile := Board.Tiles.Pointer(ix, iy)
+			if tile == nil || tile.Element == E_BOARD_EDGE {
 				finishSearch = true
 			} else if isValidDest {
 				isValidDest = false
@@ -552,7 +552,7 @@ func ElementTransporterMove(x, y, deltaX, deltaY int16) {
 				}
 			}
 
-			if tile.Element == E_TRANSPORTER {
+			if tile != nil && tile.Element == E_TRANSPORTER {
 				iStat = GetStatIdAt(ix, iy)
 				if Board.Stats.At(iStat).StepX == -deltaX && Board.Stats.At(iStat).StepY == -deltaY {
 					isValidDest = true
@@ -618,7 +618,10 @@ func ElementStarTick(statId int16) {
 		RemoveStat(statId)
 	} else if int16(stat.P2)%2 == 0 {
 		CalcDirectionSeek(int16(stat.X), int16(stat.Y), &stat.StepX, &stat.StepY)
-		tile := Board.Tiles.Get(int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
+		tile := Board.Tiles.Pointer(int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
+		if tile == nil {
+			return
+		}
 		if tile.Element == E_PLAYER || tile.Element == E_BREAKABLE {
 			BoardAttack(statId, int16(stat.X)+stat.StepX, int16(stat.Y)+stat.StepY)
 		} else {
